@@ -9,6 +9,7 @@ built into a single file, to GitHub Packages and then to the Gallery.
 
 | Module                                                            | Description                                                                                                            | Version |
 | :---------------------------------------------------------------- | :--------------------------------------------------------------------------------------------------------------------- | :------ |
+| [ConsoleOutput](src/TaffarelJr.ConsoleOutput)                     | Indent-aware console status output - success/skip/warn lines, progress, banners.                                       | -       |
 | [TestKit](src/TaffarelJr.TestKit)                                 | A minimal, homegrown test-writing kit - assertions, tallies, and output capture.                                       | -       |
 
 ## Dependencies
@@ -23,6 +24,7 @@ so a pull request that adds a module also adds its node.
 <!-- dependency-diagram -->
 ```mermaid
 graph LR
+    ConsoleOutput["ConsoleOutput"]
     TestKit["TestKit"]
 ```
 <!-- /dependency-diagram -->
