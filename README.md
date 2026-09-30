@@ -13,4 +13,5 @@ in scripts and GitHub Actions workflows across my repositories.
 | [RequiredModules](src/TaffarelJr.RequiredModules)     | Declares, checks, installs, and imports a script's required Gallery modules.                     | -       |
 | [Tally](src/TaffarelJr.Tally)                         | A generic named-counter utility - add, read, clear, render, and parse counts.                    | -       |
 | [TestKit](src/TaffarelJr.TestKit)                     | A minimal, homegrown test-writing kit - assertions, tallies, and output capture.                 | -       |
+| [TestRunner](src/TaffarelJr.TestRunner)               | Runs a folder's Pester test files in parallel, with coverage and a run summary.                  | -       |
 | [UserInput](src/TaffarelJr.UserInput)                 | Composable interactive-prompting primitives - read, validate, retry, confirm.                    | -       |
