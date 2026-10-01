@@ -10,6 +10,7 @@ built into a single file, to GitHub Packages and then to the Gallery.
 | Module                                                            | Description                                                                                                            | Version |
 | :---------------------------------------------------------------- | :--------------------------------------------------------------------------------------------------------------------- | :------ |
 | [ConsoleOutput](src/TaffarelJr.ConsoleOutput)                     | Indent-aware console status output - success/skip/warn lines, progress, banners.                                       | -       |
+| [FileText](src/TaffarelJr.FileText)                               | Encoding-safe text file read/write and token replacement across a directory tree.                                      | -       |
 | [ProcessInvocation](src/TaffarelJr.ProcessInvocation)             | Runs an external command with consistent output capture and error handling.                                            | -       |
 | [RequiredModules](src/TaffarelJr.RequiredModules)                 | Declares, checks, installs, updates, and imports a script's required Gallery modules.                                  | -       |
 | [Tally](src/TaffarelJr.Tally)                                     | A generic named-counter utility - add, read, clear, render, and parse counts.                                          | -       |
@@ -29,6 +30,7 @@ so a pull request that adds a module also adds its node.
 ```mermaid
 graph LR
     ConsoleOutput["ConsoleOutput"]
+    FileText["FileText"]
     ProcessInvocation["ProcessInvocation"]
     RequiredModules["RequiredModules"]
     Tally["Tally"]
