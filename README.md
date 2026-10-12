@@ -14,6 +14,7 @@ built into a single file, to GitHub Packages and then to the Gallery.
 | [Git](src/TaffarelJr.Git)                                         | Wraps the git CLI - branches, remotes, staging, commits, push/pull, tags, merging, and stashing.                       | -       |
 | [GitHub.Account](src/TaffarelJr.GitHub.Account)                   | Wraps gh's own auth, account switching, credential-helper setup, orgs, and local config.                               | -       |
 | [GitHub.Core](src/TaffarelJr.GitHub.Core)                         | Shared plumbing the gh-based TaffarelJr.GitHub.* modules build on.                                                     | -       |
+| [GitHub.Repositories](src/TaffarelJr.GitHub.Repositories)         | Wraps the gh CLI for repo admin - create, edit, delete, fork, sync, labels, deploy keys, rulesets, secrets, variables. | -       |
 | [ProcessInvocation](src/TaffarelJr.ProcessInvocation)             | Runs an external command with consistent output capture and error handling.                                            | -       |
 | [RequiredModules](src/TaffarelJr.RequiredModules)                 | Declares, checks, installs, updates, and imports a script's required Gallery modules.                                  | -       |
 | [Tally](src/TaffarelJr.Tally)                                     | A generic named-counter utility - add, read, clear, render, and parse counts.                                          | -       |
@@ -38,6 +39,7 @@ graph LR
     Git["Git"]
     GitHubAccount["GitHub.Account"]
     GitHubCore["GitHub.Core"]
+    GitHubRepositories["GitHub.Repositories"]
     ProcessInvocation["ProcessInvocation"]
     RequiredModules["RequiredModules"]
     Tally["Tally"]
@@ -49,6 +51,8 @@ graph LR
     GitHubAccount --> GitHubCore
     GitHubAccount --> ProcessInvocation
     GitHubCore --> ProcessInvocation
+    GitHubRepositories --> GitHubCore
+    GitHubRepositories --> ProcessInvocation
     TestRunner --> ConsoleOutput
     TestRunner --> ProcessInvocation
     TestRunner --> RequiredModules
