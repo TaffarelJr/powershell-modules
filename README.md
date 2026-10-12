@@ -13,6 +13,7 @@ in scripts and GitHub Actions workflows across my repositories.
 | [GitHub.Core](src/TaffarelJr.GitHub.Core)                 | Shared plumbing every other TaffarelJr.GitHub.* module builds on.                                | -       |
 | [GitHub.Issues](src/TaffarelJr.GitHub.Issues)             | Wraps the gh CLI for issues - create, edit, comment, transfer, and manage their lifecycle.       | -       |
 | [GitHub.PullRequests](src/TaffarelJr.GitHub.PullRequests) | Wraps the gh CLI for pull requests - create, review, merge, comment, and manage their lifecycle. | -       |
+| [GitHub.Releases](src/TaffarelJr.GitHub.Releases)         | Wraps the gh CLI for releases and their assets - create, edit, publish, upload, download.        | -       |
 | [GitHub.Repositories](src/TaffarelJr.GitHub.Repositories) | Wraps the gh CLI for repo admin - labels, deploy keys, rulesets, secrets, variables.             | -       |
 | [ProcessInvocation](src/TaffarelJr.ProcessInvocation)     | Runs an external command with consistent output capture and error handling.                      | -       |
 | [RequiredModules](src/TaffarelJr.RequiredModules)         | Declares, checks, installs, and imports a script's required Gallery modules.                     | -       |
