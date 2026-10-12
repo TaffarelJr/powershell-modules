@@ -25,3 +25,4 @@ in scripts and GitHub Actions workflows across my repositories.
 | [TestKit](src/TaffarelJr.TestKit)                                 | A minimal, homegrown test-writing kit - assertions, tallies, and output capture.                          | -       |
 | [TestRunner](src/TaffarelJr.TestRunner)                           | Runs a folder's Pester test files in parallel, with coverage and a run summary.                           | -       |
 | [UserInput](src/TaffarelJr.UserInput)                             | Composable interactive-prompting primitives - read, validate, retry, confirm.                             | -       |
+| [VSCode](src/TaffarelJr.VSCode)                                   | Finds and launches VS Code, and authors multi-root .code-workspace files.                                 | -       |
