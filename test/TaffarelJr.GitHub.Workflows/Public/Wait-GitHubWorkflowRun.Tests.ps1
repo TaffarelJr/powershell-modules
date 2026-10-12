@@ -12,16 +12,17 @@ Import-Module (Join-Path $repoRoot 'src/TaffarelJr.GitHub.Workflows/TaffarelJr.G
 $fields = 'attempt,conclusion,createdAt,databaseId,displayTitle,event,headBranch,headSha,name,number,startedAt,status,updatedAt,url,workflowDatabaseId,workflowName,jobs'
 
 #───────────────────────────────────────────────────────────────────────────────
-# Arrange - the fake answers both the watch and the read-back with the run
+# Arrange - the run is already completed on the very first poll,
+# so the wait returns before ever sleeping
 $fake = New-FakeGitHubCli -Output @('{"databaseId":123,"status":"completed","conclusion":"success"}')
 try {
     # Act
-    $run = Wait-GitHubWorkflowRun -Id 123 -Interval 5 -Repository 'o/r'
+    $run = Wait-GitHubWorkflowRun -Id 123 -Repository 'o/r'
     $calls = Get-FakeGitHubCall -Fixture $fake
 
     # Assert
-    Assert-Equal -Expected 2 -Actual $calls.Count -Message 'The run is watched, then read back'
-    Assert-Equal -Expected @('run', 'watch', '123', '--interval', '5', '--repo', 'o/r') -Actual $calls[0].Arguments -Message 'The watch names the run and the poll interval'
+    Assert-Equal -Expected 2 -Actual $calls.Count -Message 'The run is polled once, then read back in full'
+    Assert-Equal -Expected @('run', 'view', '123', '--json', 'status', '--repo', 'o/r') -Actual $calls[0].Arguments -Message 'The poll asks only for status'
     Assert-Equal -Expected @('run', 'view', '123', '--json', $fields, '--repo', 'o/r') -Actual $calls[1].Arguments -Message 'The finished run is read back with its jobs'
     Assert-Equal -Expected 'success' -Actual $run.Conclusion -Message 'The finished run is returned'
 }
@@ -30,15 +31,28 @@ finally {
 }
 
 #───────────────────────────────────────────────────────────────────────────────
-# Arrange - a failed run, which gh's watch reports through its exit code
-$fake = New-FakeGitHubCli -Output @('{"databaseId":7,"status":"completed","conclusion":"failure"}') -ExitCode 1
+# Arrange - the run never leaves in_progress, so the wait times out and
+# returns the run as it last stood
+$fake = New-FakeGitHubCli -Output @('{"databaseId":7,"status":"in_progress"}')
 try {
-    # Act / Assert - the read-back also exits 1 here, so the fake cannot
-    # answer both legs; what matters is that the watch's exit code alone
-    # does not throw before the read-back is attempted
-    Assert-Throws -ScriptBlock { Wait-GitHubWorkflowRun -Id 7 } -Message 'A read-back that fails still throws'
-    $calls = Get-FakeGitHubCall -Fixture $fake
-    Assert-Equal -Expected 2 -Actual $calls.Count -Message "The watch's own non-zero exit does not stop the read-back from being attempted"
+    # Act
+    $run = Wait-GitHubWorkflowRun -Id 7 -TimeoutSeconds 1 -PollSeconds 1
+
+    # Assert
+    Assert-Equal -Expected 'in_progress' -Actual $run.Status -Message 'A run still running at the deadline is returned as still in_progress, not thrown'
+}
+finally {
+    Remove-FakeGitHubCli -Fixture $fake
+}
+
+#───────────────────────────────────────────────────────────────────────────────
+# Arrange - gh fails on every poll, so three in a row throws
+# instead of letting the wait run out the clock
+$fake = New-FakeGitHubCli -ExitCode 1
+try {
+    # Act / Assert
+    Assert-Throws -ScriptBlock { Wait-GitHubWorkflowRun -Id 9 -TimeoutSeconds 60 -PollSeconds 1 } `
+        -Message 'Three consecutive unreadable polls throws rather than waiting out the full timeout'
 }
 finally {
     Remove-FakeGitHubCli -Fixture $fake
