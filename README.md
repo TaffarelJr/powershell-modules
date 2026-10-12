@@ -18,6 +18,7 @@ built into a single file, to GitHub Packages and then to the Gallery.
 | [GitHub.PullRequests](src/TaffarelJr.GitHub.PullRequests)         | Wraps the gh CLI for pull requests - create, review, merge, comment, and manage their lifecycle.                       | -       |
 | [GitHub.Releases](src/TaffarelJr.GitHub.Releases)                 | Wraps the gh CLI for releases and their assets - create, edit, publish, upload, download.                              | -       |
 | [GitHub.Repositories](src/TaffarelJr.GitHub.Repositories)         | Wraps the gh CLI for repo admin - create, edit, delete, fork, sync, labels, deploy keys, rulesets, secrets, variables. | -       |
+| [GitHub.Workflows](src/TaffarelJr.GitHub.Workflows)               | Wraps the gh CLI for Actions - dispatch/monitor workflow runs, manage workflows, caches.                               | -       |
 | [ProcessInvocation](src/TaffarelJr.ProcessInvocation)             | Runs an external command with consistent output capture and error handling.                                            | -       |
 | [RequiredModules](src/TaffarelJr.RequiredModules)                 | Declares, checks, installs, updates, and imports a script's required Gallery modules.                                  | -       |
 | [Tally](src/TaffarelJr.Tally)                                     | A generic named-counter utility - add, read, clear, render, and parse counts.                                          | -       |
@@ -46,6 +47,7 @@ graph LR
     GitHubPullRequests["GitHub.PullRequests"]
     GitHubReleases["GitHub.Releases"]
     GitHubRepositories["GitHub.Repositories"]
+    GitHubWorkflows["GitHub.Workflows"]
     ProcessInvocation["ProcessInvocation"]
     RequiredModules["RequiredModules"]
     Tally["Tally"]
@@ -65,6 +67,8 @@ graph LR
     GitHubReleases --> ProcessInvocation
     GitHubRepositories --> GitHubCore
     GitHubRepositories --> ProcessInvocation
+    GitHubWorkflows --> GitHubCore
+    GitHubWorkflows --> ProcessInvocation
     TestRunner --> ConsoleOutput
     TestRunner --> ProcessInvocation
     TestRunner --> RequiredModules
