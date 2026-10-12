@@ -12,6 +12,7 @@ built into a single file, to GitHub Packages and then to the Gallery.
 | [ConsoleOutput](src/TaffarelJr.ConsoleOutput)                     | Indent-aware console status output - success/skip/warn lines, progress, banners.                                       | -       |
 | [FileText](src/TaffarelJr.FileText)                               | Encoding-safe text file read/write and token replacement across a directory tree.                                      | -       |
 | [Git](src/TaffarelJr.Git)                                         | Wraps the git CLI - branches, remotes, staging, commits, push/pull, tags, merging, and stashing.                       | -       |
+| [GitHub.Account](src/TaffarelJr.GitHub.Account)                   | Wraps gh's own auth, account switching, credential-helper setup, orgs, and local config.                               | -       |
 | [GitHub.Core](src/TaffarelJr.GitHub.Core)                         | Shared plumbing the gh-based TaffarelJr.GitHub.* modules build on.                                                     | -       |
 | [ProcessInvocation](src/TaffarelJr.ProcessInvocation)             | Runs an external command with consistent output capture and error handling.                                            | -       |
 | [RequiredModules](src/TaffarelJr.RequiredModules)                 | Declares, checks, installs, updates, and imports a script's required Gallery modules.                                  | -       |
@@ -35,6 +36,7 @@ graph LR
     ConsoleOutput["ConsoleOutput"]
     FileText["FileText"]
     Git["Git"]
+    GitHubAccount["GitHub.Account"]
     GitHubCore["GitHub.Core"]
     ProcessInvocation["ProcessInvocation"]
     RequiredModules["RequiredModules"]
@@ -44,6 +46,8 @@ graph LR
     UserInput["UserInput"]
 
     Git --> ProcessInvocation
+    GitHubAccount --> GitHubCore
+    GitHubAccount --> ProcessInvocation
     GitHubCore --> ProcessInvocation
     TestRunner --> ConsoleOutput
     TestRunner --> ProcessInvocation
