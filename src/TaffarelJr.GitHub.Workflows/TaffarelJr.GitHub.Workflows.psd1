@@ -26,6 +26,7 @@
         'Start-GitHubWorkflow'
         'Stop-GitHubWorkflowRun'
         'Wait-GitHubWorkflowRun'
+        'Wait-GitHubWorkflowRunStart'
     )
     CmdletsToExport   = @()
     VariablesToExport = @()

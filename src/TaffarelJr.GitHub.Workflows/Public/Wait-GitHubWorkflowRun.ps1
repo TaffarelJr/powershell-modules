@@ -3,41 +3,65 @@ function Wait-GitHubWorkflowRun {
     .SYNOPSIS
         Waits for a workflow run to finish, then returns it.
     .DESCRIPTION
-        gh's own watch reports a failed run through its exit code; that
-        is ignored here, since the returned run carries its Conclusion
-        for the caller to judge. A watch that could not start at all -
-        no such run, no access - still surfaces when the finished run is
-        read back. gh's watch does not work with a fine-grained personal
-        access token, which cannot carry the checks:read permission it
-        needs.
+        Polls gh directly for the run's status rather than delegating to
+        gh run watch, which has no timeout of its own and does not work
+        with a fine-grained personal access token - that token type
+        cannot carry the checks:read permission gh run watch needs. A
+        handful of consecutive unreadable polls is tolerated as a
+        transient blip; past that, it throws, since a status read once
+        early would otherwise stand in for the run's real state at the
+        deadline.
     .PARAMETER Id
         The run, by its database id.
-    .PARAMETER Interval
-        How many seconds to wait between polls. gh's default is 3.
+    .PARAMETER TimeoutSeconds
+        How long to wait for the run to finish.
+    .PARAMETER PollSeconds
+        How many seconds to wait between polls.
     .PARAMETER Repository
         The repository, in [HOST/]OWNER/REPO form. Omit it to use the
         current directory's repository.
     .OUTPUTS
-        The finished run, as Get-GitHubWorkflowRun returns it - Status,
-        Conclusion, Jobs, and the rest.
+        The run, as Get-GitHubWorkflowRun returns it - Status,
+        Conclusion, Jobs, and the rest. Still in_progress if the
+        deadline passed before it finished.
     #>
     param(
         [Parameter(Mandatory, Position = 0, ValueFromPipeline, ValueFromPipelineByPropertyName)]
         [Alias('DatabaseId')]
         [long]$Id,
 
-        [int]$Interval,
+        [ValidateRange(1, 86400)]
+        [int]$TimeoutSeconds = 1800,
+
+        [ValidateRange(1, 3600)]
+        [int]$PollSeconds = 5,
 
         [string]$Repository
     )
 
     process {
-        $arguments = @('run', 'watch', $Id)
-        if ($Interval -gt 0) {
-            $arguments += @('--interval', $Interval)
+        $deadline = (Get-Date).AddSeconds($TimeoutSeconds)
+        $unreadable = 0
+        while ((Get-Date) -lt $deadline) {
+            $result = Invoke-GitHubCommand -Activity "Reading workflow run $Id" -Arguments @('run', 'view', $Id, '--json', 'status') -Repository $Repository -Tolerant
+
+            if ($result.Ok) {
+                $unreadable = 0
+                $status = (ConvertFrom-GitHubJson -Lines $result.Output).Status
+                if ($status -eq 'completed') {
+                    break
+                }
+            }
+            else {
+                $unreadable++
+                if ($unreadable -ge $script:MaxUnreadablePolls) {
+                    throw "Could not read workflow run $Id ($unreadable attempts in a row failed)."
+                }
+            }
+
+            Start-Sleep -Seconds $PollSeconds
         }
 
-        Invoke-GitHubCommand -Activity "Waiting for workflow run $Id" -Arguments $arguments -Repository $Repository -Tolerant | Out-Null
         return Get-GitHubWorkflowRun -Id $Id -Repository $Repository
     }
 }
