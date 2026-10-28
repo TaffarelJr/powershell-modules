@@ -20,9 +20,9 @@ in scripts and GitHub Actions workflows across my repositories.
 | [GitHub.WorkflowCommands](src/TaffarelJr.GitHub.WorkflowCommands) | The GitHub Actions runner protocol - log annotations, log groups, masking, outputs, env vars, PATH, summaries, state.  | -       |
 | [GitHub.Workflows](src/TaffarelJr.GitHub.Workflows)               | Wraps the gh CLI for Actions - dispatch/monitor workflow runs, manage workflows, caches.                               | -       |
 | [ProcessInvocation](src/TaffarelJr.ProcessInvocation)             | Runs an external command with consistent output capture and error handling.                                            | -       |
-| [RequiredModules](src/TaffarelJr.RequiredModules)                 | Declares, checks, installs, and imports a script's required Gallery modules.                                           | -       |
+| [RequiredModules](src/TaffarelJr.RequiredModules)                 | Declares, checks, installs, updates, and imports a script's required Gallery modules.                                  | -       |
 | [Tally](src/TaffarelJr.Tally)                                     | A generic named-counter utility - add, read, clear, render, and parse counts.                                          | -       |
 | [TestKit](src/TaffarelJr.TestKit)                                 | A minimal, homegrown test-writing kit - assertions, tallies, and output capture.                                       | -       |
-| [TestRunner](src/TaffarelJr.TestRunner)                           | Runs *.Tests.ps1 files under one or more folders in parallel, with Pester coverage and a run summary.                  | -       |
+| [TestRunner](src/TaffarelJr.TestRunner)                           | Runs *.Tests.ps1 files under one or more folders in parallel, with a run summary and coverage on request.              | -       |
 | [UserInput](src/TaffarelJr.UserInput)                             | Composable interactive-prompting primitives - read, validate, retry, confirm.                                          | -       |
 | [VSCode](src/TaffarelJr.VSCode)                                   | Finds and launches VS Code, and authors multi-root .code-workspace files.                                              | -       |
