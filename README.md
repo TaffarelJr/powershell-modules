@@ -11,6 +11,7 @@ in scripts and GitHub Actions workflows across my repositories.
 | [Git](src/TaffarelJr.Git)                                 | Wraps the git CLI - branches, remotes, staging, commits, push/pull, tags, merging, and stashing. | -       |
 | [GitHub.Account](src/TaffarelJr.GitHub.Account)           | Wraps gh's own auth, account switching, credential-helper setup, orgs, and local config.         | -       |
 | [GitHub.Core](src/TaffarelJr.GitHub.Core)                 | Shared plumbing every other TaffarelJr.GitHub.* module builds on.                                | -       |
+| [GitHub.PullRequests](src/TaffarelJr.GitHub.PullRequests) | Wraps the gh CLI for pull requests - create, review, merge, comment, and manage their lifecycle. | -       |
 | [GitHub.Repositories](src/TaffarelJr.GitHub.Repositories) | Wraps the gh CLI for repo admin - labels, deploy keys, rulesets, secrets, variables.             | -       |
 | [ProcessInvocation](src/TaffarelJr.ProcessInvocation)     | Runs an external command with consistent output capture and error handling.                      | -       |
 | [RequiredModules](src/TaffarelJr.RequiredModules)         | Declares, checks, installs, and imports a script's required Gallery modules.                     | -       |
