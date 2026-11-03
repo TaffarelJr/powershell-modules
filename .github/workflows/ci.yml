@@ -1,0 +1,521 @@
+# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
+
+# Checks only what a change affects. The changes job reads every manifest's
+# RequiredModules and selects each touched module plus everything that
+# requires it, directly or not; a change to a shared test file, TestKit,
+# build/ or this file selects every module. The analyzer, the test matrix,
+# the Codecov upload and the single-file build all take that list, and
+# "CI complete" is the one check a ruleset requires: it passes when nothing
+# was affected and fails when any job that ran failed.
+#
+# Change detection is a job, not a paths: filter, because a required check
+# from a skipped workflow stays Pending and blocks the pull request.
+#
+# pull_request has no branch filter because stacked pull requests target one
+# another. push to main runs on the rebase merge: Codecov needs a report on
+# the base commit, and a rebase lands commits no pull request run tested in
+# the form they landed.
+
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      modules:
+        description: >-
+          Short module names to test, comma-separated (Git, GitHub.Core).
+          Empty means the modules the branch changed against main.
+        type: string
+        default: ''
+      all:
+        description: Test every module, whatever changed.
+        type: boolean
+        default: false
+
+# A newer push to the same branch supersedes a run still in progress.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: pwsh
+
+env:
+  # 1.1.0 added Compress-PSResource; PowerShell 7.4+ ships a newer one in-box.
+  PSRESOURCEGET_MINIMUM: 1.1.0
+  # One test file may run this long before it is stopped and counted as crashed. TestRunner's
+  # slowest file takes about 12 minutes on a fast laptop without coverage.
+  TEST_FILE_TIMEOUT_SECONDS: 1800
+
+jobs:
+  changes:
+    name: Find the affected modules
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read # Needed to check out the repo and read its history
+    outputs:
+      modules: ${{ steps.affected.outputs.modules }}
+      any: ${{ steps.affected.outputs.any }}
+      tested: ${{ steps.affected.outputs.tested }}
+      anytested: ${{ steps.affected.outputs.anytested }}
+      runner: ${{ steps.affected.outputs.runner }}
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0 # The diff needs the base commit and the merge base, not just the tip
+          persist-credentials: false # Nothing here pushes
+
+      # A pull request diffs from its merge base (three dots) so changes on the
+      # base branch do not count. A push diffs from the commit before it; a new
+      # branch reports an all-zeros 'before', and a force-push can leave one
+      # this clone does not have - both run everything rather than guess.
+      - name: Compute the affected set
+        id: affected
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          PUSH_BEFORE: ${{ github.event.before }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+          INPUT_MODULES: ${{ inputs.modules }}
+          INPUT_ALL: ${{ inputs.all }}
+        run: |
+          Set-StrictMode -Version Latest
+          $ErrorActionPreference = 'Stop'
+          $prefix = 'TaffarelJr.'
+
+          # The test runner is a module of this repository, so a tree below the pull request
+          # that adds it has none: the jobs run each test file directly there instead.
+          $runner = Test-Path -LiteralPath test/Invoke-Tests.ps1 -PathType Leaf
+
+          $all = [string[]]@()
+          if (Test-Path -LiteralPath src -PathType Container) {
+              $all = [string[]]@(Get-ChildItem -LiteralPath src -Directory -Filter "$prefix*" |
+                  ForEach-Object { $_.Name.Substring($prefix.Length) } | Sort-Object)
+          }
+
+          # Who requires whom, read from the manifests so the graph is never stale.
+          $dependents = @{}
+          foreach ($name in $all) { $dependents[$name] = [Collections.Generic.List[string]]::new() }
+          foreach ($name in $all) {
+              $path = Join-Path src "$prefix$name" "$prefix$name.psd1"
+              $manifest = Import-PowerShellDataFile -LiteralPath $path
+              if (-not $manifest.ContainsKey('RequiredModules')) { continue }
+              foreach ($required in @($manifest.RequiredModules)) {
+                  $requiredName = if ($required -is [string]) { $required } else { $required.ModuleName }
+                  $short = $requiredName -replace "^$([regex]::Escape($prefix))", ''
+                  if ($dependents.ContainsKey($short)) { $dependents[$short].Add($name) }
+              }
+          }
+
+          $selected = [Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
+          $reason = ''
+          $named = ([string]$env:INPUT_MODULES).Trim()
+
+          if ($env:EVENT_NAME -eq 'workflow_dispatch' -and $env:INPUT_ALL -eq 'true') {
+              $reason = 'the run asked for every module'
+              $selected.UnionWith($all)
+          }
+          elseif ($env:EVENT_NAME -eq 'workflow_dispatch' -and $named) {
+              foreach ($token in $named -split ',') {
+                  $name = $token.Trim() -replace "^$([regex]::Escape($prefix))", ''
+                  if (-not $name) { continue }
+                  $known = @($all | Where-Object { $_ -eq $name })
+                  if (-not $known) {
+                      Write-Host "::error::No module named '$name'. Known: $($all -join ', ')."
+                      exit 1
+                  }
+                  $null = $selected.Add($known[0])
+              }
+              $reason = 'the run named them'
+          }
+          else {
+              $base = switch ($env:EVENT_NAME) {
+                  'pull_request' { $env:PR_BASE_SHA }
+                  'push' { $env:PUSH_BEFORE }
+                  default { "origin/$env:DEFAULT_BRANCH" }
+              }
+              $usable = [bool]$base -and $base -notmatch '^0+$'
+              if ($usable) {
+                  $null = git rev-parse --verify --quiet "$base^{commit}"
+                  $usable = $LASTEXITCODE -eq 0
+              }
+              if (-not $usable) {
+                  $reason = "there is no base commit to compare with ('$base')"
+                  $selected.UnionWith($all)
+              }
+              else {
+                  $changed = @(git diff --name-only "$base...HEAD")
+                  if ($LASTEXITCODE -ne 0) {
+                      Write-Host "::error::git diff $base...HEAD failed."
+                      exit 1
+                  }
+                  $sharedPattern = '^(test/[^/]+\.(ps1|psd1)$|src/TaffarelJr\.TestKit/|build/|' +
+                      '\.github/workflows/ci\.yml$|PSScriptAnalyzerSettings\.psd1$)'
+                  $modulePattern = '^(src|test)/TaffarelJr\.([^/]+)/'
+                  $shared = @($changed | Where-Object { $_ -match $sharedPattern })
+                  if ($shared) {
+                      $reason = "a shared file changed ($($shared[0]))"
+                      $selected.UnionWith($all)
+                  }
+                  else {
+                      $direct = @($changed |
+                          ForEach-Object { if ($_ -match $modulePattern) { $Matches[2] } } |
+                          Sort-Object -Unique)
+                      $queue = [Collections.Generic.Queue[string]]::new()
+                      foreach ($name in $direct) {
+                          if ($dependents.ContainsKey($name) -and $selected.Add($name)) {
+                              $queue.Enqueue($name)
+                          }
+                      }
+                      while ($queue.Count -gt 0) {
+                          foreach ($dependent in $dependents[$queue.Dequeue()]) {
+                              if ($selected.Add($dependent)) { $queue.Enqueue($dependent) }
+                          }
+                      }
+                      $reason = "$($changed.Count) changed file(s) touch: $($direct -join ', ')"
+                      if (-not $direct) {
+                          $reason = "none of the $($changed.Count) changed file(s) is under a module"
+                      }
+                  }
+              }
+          }
+
+          # Largest suites first, so the matrix's long poles start before the queue fills.
+          # A module can be in the tree before its tests are, so the test matrix takes only
+          # the affected modules that have a test file.
+          $sized = @($selected | ForEach-Object {
+                  $folder = Join-Path test "$prefix$_"
+                  $files = @()
+                  if (Test-Path -LiteralPath $folder -PathType Container) {
+                      $files = @(Get-ChildItem -LiteralPath $folder -Recurse -File -Filter '*.Tests.ps1')
+                  }
+                  [pscustomobject]@{ Name = $_; Files = $files.Count }
+              } | Sort-Object -Property @{ Expression = 'Files'; Descending = $true }, Name)
+          $ordered = @($sized | ForEach-Object Name)
+          $tested = @($sized | Where-Object { $_.Files -gt 0 } | ForEach-Object Name)
+
+          $json = ConvertTo-Json -InputObject @($ordered) -Compress
+          $testedJson = ConvertTo-Json -InputObject @($tested) -Compress
+          $any = if ($ordered.Count -gt 0) { 'true' } else { 'false' }
+          $anyTested = if ($tested.Count -gt 0) { 'true' } else { 'false' }
+          $hasRunner = if ($runner) { 'true' } else { 'false' }
+          Add-Content -LiteralPath $env:GITHUB_OUTPUT -Value @(
+              "modules=$json", "any=$any", "tested=$testedJson", "anytested=$anyTested", "runner=$hasRunner")
+          Write-Host "Affected: $($ordered.Count) of $($all.Count), because $reason."
+          Add-Content -LiteralPath $env:GITHUB_STEP_SUMMARY -Value @(
+              '## Affected modules', '', "$($ordered.Count) of $($all.Count), because $reason.", ''
+              @($ordered | ForEach-Object { "- $_" })
+          )
+
+  analyze:
+    name: Analyze
+    needs: changes
+    if: needs.changes.outputs.any == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read # Needed to check out the repo
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 1 # The analyzer reads the tree, not its history
+          persist-credentials: false # Nothing here pushes
+
+      # Only the affected modules' src and test folders, plus the files every
+      # module's tests share, so a finding in an untouched module cannot block
+      # an unrelated change.
+      - name: Run PSScriptAnalyzer over the affected modules
+        env:
+          MODULES: ${{ needs.changes.outputs.modules }}
+        run: |
+          Import-Module PSScriptAnalyzer
+          $rootSettings = './PSScriptAnalyzerSettings.psd1'
+          $testSettings = './test/PSScriptAnalyzerSettings.psd1'
+          $targets = [Collections.Generic.List[hashtable]]::new()
+          foreach ($name in @(ConvertFrom-Json -InputObject $env:MODULES)) {
+            $targets.Add(@{ Path = "src/TaffarelJr.$name"; Settings = $rootSettings })
+            $targets.Add(@{ Path = "test/TaffarelJr.$name"; Settings = $testSettings })
+          }
+          foreach ($file in Get-ChildItem -Path test/* -File -Include *.ps1, *.psd1) {
+            $targets.Add(@{ Path = $file.FullName; Settings = $testSettings })
+          }
+          $targets.Add(@{ Path = 'build'; Settings = $rootSettings })
+          $targets.Add(@{ Path = 'test/build'; Settings = $testSettings })
+          # A module may be in the tree before its tests are.
+          $targets = @($targets | Where-Object { Test-Path -LiteralPath $_.Path })
+
+          $records = [Collections.Generic.List[object]]::new()
+          foreach ($target in $targets) {
+            try {
+              $found = @(Invoke-ScriptAnalyzer -Path $target.Path -Recurse -Settings $target.Settings)
+            }
+            catch {
+              # PSScriptAnalyzer 1.25.0 can throw a null-reference over many files in
+              # one call (see PSScriptAnalyzerSettings.psd1); one at a time passes.
+              Write-Host "::warning::One-call analysis of $($target.Path) threw; retrying per file."
+              $files = @(Get-ChildItem -LiteralPath $target.Path -Recurse -File `
+                -Include *.ps1, *.psm1, *.psd1)
+              $found = @(foreach ($file in $files) {
+                Invoke-ScriptAnalyzer -Path $file.FullName -Settings $target.Settings
+              })
+            }
+            $records.AddRange($found)
+          }
+          foreach ($record in $records) {
+            $file = [IO.Path]::GetRelativePath($PWD, $record.ScriptPath).Replace('\', '/')
+            $message = $record.Message -replace '%', '%25' -replace "`r", '%0D' -replace "`n", '%0A'
+            $where = "file=$file,line=$($record.Line),col=$($record.Column),title=$($record.RuleName)"
+            Write-Host "::error $where::$message"
+          }
+          if ($records.Count -gt 0) {
+            Write-Host "$($records.Count) finding(s)."
+            exit 1
+          }
+          Write-Host 'No findings.'
+
+  test:
+    name: Test ${{ matrix.module }} on ${{ matrix.os }}
+    needs: changes
+    if: needs.changes.outputs.anytested == 'true'
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        module: ${{ fromJSON(needs.changes.outputs.tested) }}
+    permissions:
+      contents: read # Needed to check out the repo
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 1 # The tests import the modules from src, not from history
+          persist-credentials: false # The tests run the modules' code; nothing pushes
+
+      # The import floor, not the tests, sets a file's time: a Git test file
+      # pays 10-12 s importing from src and 2.1-2.4 s from the single-file
+      # build. Each dependency's built root .psm1 is laid over its src copy.
+      # The module under test stays file-per-function so coverage maps to its
+      # real source lines, and every Private/ and Public/ folder stays in
+      # place for the public-surface helper's cross-module read.
+      - name: Build the module's dependencies into single files
+        env:
+          MODULE: ${{ matrix.module }}
+        run: |
+          $prefix = 'TaffarelJr.'
+          $wanted = [Collections.Generic.HashSet[string]]::new()
+          $null = $wanted.Add("${prefix}TestKit")
+          $queue = [Collections.Generic.Queue[string]]::new()
+          $queue.Enqueue("$prefix$env:MODULE")
+          while ($queue.Count -gt 0) {
+            $name = $queue.Dequeue()
+            $manifest = Import-PowerShellDataFile -LiteralPath (Join-Path src $name "$name.psd1")
+            if (-not $manifest.ContainsKey('RequiredModules')) { continue }
+            foreach ($required in @($manifest.RequiredModules)) {
+              $requiredName = if ($required -is [string]) { $required } else { $required.ModuleName }
+              if ($requiredName -like "$prefix*" -and $wanted.Add($requiredName)) {
+                $queue.Enqueue($requiredName)
+              }
+            }
+          }
+          $null = $wanted.Remove("$prefix$env:MODULE")
+          if ($wanted.Count -eq 0) {
+            Write-Host 'No dependencies to build.'
+            exit 0
+          }
+          ./build/Build-Module.ps1 -Name ($wanted -join ',')
+          foreach ($name in $wanted) {
+            Copy-Item -LiteralPath (Join-Path out $name "$name.psm1") `
+              -Destination (Join-Path src $name "$name.psm1") -Force
+          }
+          Write-Host "Single-file imports for: $($wanted -join ', ')"
+
+      # -Integration adds the *.Contract files, which need only gh itself (both
+      # runners carry it), and the *.Live files, which skip without a login.
+      # Coverage only on ubuntu: only its reports are uploaded, and skipping
+      # Pester on Windows saves seconds a file. Never set
+      # TAFFARELJR_TEST_BROKEN_EXE here: it opens a blocking dialog.
+      #
+      # The runner is a module of this repository: below the pull request that adds it
+      # there is none, and each test file runs on its own in a process of its own, which
+      # is all the runner does for a file without -Coverage.
+      - name: Run the module's tests
+        env:
+          MODULE: ${{ matrix.module }}
+          COVERAGE: ${{ matrix.os == 'ubuntu-latest' }}
+          TIMEOUT: ${{ env.TEST_FILE_TIMEOUT_SECONDS }}
+        run: |
+          if (Test-Path -LiteralPath ./test/Invoke-Tests.ps1) {
+            ./test/Invoke-Tests.ps1 -Module $env:MODULE -Coverage:($env:COVERAGE -eq 'true') `
+              -Integration -TimeoutSeconds $env:TIMEOUT
+            exit $LASTEXITCODE
+          }
+
+          $failed = 0
+          $files = Get-ChildItem -LiteralPath "test/TaffarelJr.$env:MODULE" -Recurse -File -Filter '*.Tests.ps1'
+          foreach ($file in $files) {
+            pwsh -NoProfile -File $file.FullName
+            if ($LASTEXITCODE -ne 0) {
+              $failed++
+              Write-Host "::error file=$($file.FullName)::exit code $LASTEXITCODE"
+            }
+          }
+          Write-Host "$($files.Count) file(s), $failed failed."
+          exit ([Math]::Min($failed, 255))
+
+      # Both report trees are rooted at test/, so a download into test/
+      # puts them back where they were.
+      - name: Upload the coverage and result reports
+        if: always() && matrix.os == 'ubuntu-latest' && needs.changes.outputs.runner == 'true'
+        uses: actions/upload-artifact@v7
+        with:
+          name: coverage-${{ matrix.os }}-${{ matrix.module }}
+          path: |
+            test/coverage
+            test/results
+          if-no-files-found: warn
+          retention-days: 14
+
+  coverage:
+    name: Coverage
+    needs: [changes, test]
+    if: ${{ !cancelled() && needs.changes.outputs.anytested == 'true' && needs.changes.outputs.runner == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read # Needed to check out the repo so Codecov can match report paths
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 1 # Codecov matches report paths to the tree; no history is read
+          persist-credentials: false # Nothing here pushes
+
+      - name: Download the ubuntu coverage reports
+        uses: actions/download-artifact@v8
+        with:
+          pattern: coverage-ubuntu-latest-*
+          merge-multiple: true # Each artifact holds a different module's folder
+          path: test # The artifacts are rooted at test/, so coverage/ lands back in place
+
+      # The upload action flags each immediate subfolder by its name, and the
+      # flags should be the short names used everywhere in this repository.
+      - name: Restage the reports under short module names
+        run: |
+          New-Item -ItemType Directory -Path upload | Out-Null
+          $folders = @(Get-ChildItem -LiteralPath test/coverage -Directory -Filter 'TaffarelJr.*')
+          foreach ($folder in $folders) {
+            $short = $folder.Name.Substring('TaffarelJr.'.Length)
+            Move-Item -LiteralPath $folder.FullName -Destination (Join-Path upload $short)
+          }
+          Get-ChildItem -LiteralPath upload -Recurse -File |
+            ForEach-Object { [IO.Path]::GetRelativePath($PWD, $_.FullName) }
+
+      # A fork's pull request has no token; Codecov takes a tokenless upload
+      # from a public repository's fork as best effort, so there it only
+      # warns. Everywhere else a failed upload fails the job.
+      - name: Upload the reports to Codecov
+        uses: TaffarelJr/.actions/codecov/upload@v1
+        with:
+          path: upload
+          group-by-subfolder: true # One flag per module, by short name
+          token: ${{ secrets.CODECOV_TOKEN }}
+          fail-on-error: ${{ github.event.pull_request.head.repo.fork != true }}
+
+  build:
+    name: Build
+    needs: changes
+    if: needs.changes.outputs.any == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read # Needed to check out the repo
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 1 # The build reads the tree, not its history
+          persist-credentials: false # Nothing here pushes
+
+      # Run directly, not through the runner: they must pass in a tree that has none.
+      - name: Run the build script's own tests and the public-surface helper's
+        run: |
+          $files = @(Get-ChildItem -LiteralPath test/build -File -Filter '*.Tests.ps1') +
+            @(Get-Item -LiteralPath test/PublicSurfaceTestHelper.Tests.ps1)
+          $failed = 0
+          foreach ($file in $files) {
+            pwsh -NoProfile -File $file.FullName
+            if ($LASTEXITCODE -ne 0) {
+              $failed++
+              Write-Host "::error file=$($file.FullName)::exit code $LASTEXITCODE"
+            }
+          }
+          Write-Host "$($files.Count) file(s), $failed failed."
+          exit ([Math]::Min($failed, 255))
+
+      - name: Build the affected modules into one file each
+        env:
+          MODULES: ${{ needs.changes.outputs.modules }}
+        run: |
+          $names = @(ConvertFrom-Json -InputObject $env:MODULES | ForEach-Object { "TaffarelJr.$_" })
+          ./build/Build-Module.ps1 -Name ($names -join ',')
+
+      # out/ goes first on PSModulePath so a built module's RequiredModules
+      # resolve to other built modules where they exist, and to src/ otherwise.
+      - name: Import and pack every built module
+        run: |
+          Import-Module Microsoft.PowerShell.PSResourceGet -MinimumVersion $env:PSRESOURCEGET_MINIMUM
+          $separator = [IO.Path]::PathSeparator
+          $env:PSModulePath = "$(Join-Path $PWD out)$separator$(Join-Path $PWD src)$separator" +
+            $env:PSModulePath
+          New-Item -ItemType Directory -Path packages | Out-Null
+          $lines = foreach ($folder in Get-ChildItem -LiteralPath out -Directory) {
+            $manifest = Join-Path $folder.FullName "$($folder.Name).psd1"
+            $module = Import-Module -Name $manifest -PassThru -ErrorAction Stop
+            $package = Compress-PSResource -Path $folder.FullName -DestinationPath packages -PassThru
+            "$($module.Name) $($module.Version) $($module.ExportedFunctions.Count) $($package.Name)"
+          }
+          Set-Content -LiteralPath packages/packages.txt -Value $lines
+          $lines
+
+      - name: Upload the packages
+        uses: actions/upload-artifact@v7
+        with:
+          name: packages
+          path: packages
+          if-no-files-found: error
+          retention-days: 14
+
+  ci-complete:
+    name: CI complete
+    needs: [changes, analyze, test, coverage, build]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions: {} # Only reads the other jobs' results; nothing from GitHub is needed
+    steps:
+      # The one check a ruleset requires. A job skipped because nothing was
+      # affected counts as success; one that failed or was cancelled fails it.
+      - name: Check every job
+        env:
+          RESULTS: ${{ toJSON(needs) }}
+        run: |
+          $needs = ConvertFrom-Json -InputObject $env:RESULTS -AsHashtable
+          foreach ($job in @($needs.Keys | Sort-Object)) {
+            Write-Host ('{0,-10} {1}' -f $job, $needs[$job].result)
+          }
+          $bad = @($needs.Keys | Where-Object { $needs[$_].result -in 'failure', 'cancelled' } |
+            Sort-Object)
+          if ($bad) {
+            Write-Host "::error::Failed or cancelled: $($bad -join ', ')."
+            exit 1
+          }
+          Write-Host 'CI complete.'
