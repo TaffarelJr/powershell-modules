@@ -3,6 +3,9 @@
 A personal collection of independently versioned PowerShell modules,
 published to the PowerShell Gallery for reuse
 in scripts and GitHub Actions workflows across my repositories.
+Each module is versioned, released and published on its own:
+a GitHub Release on the tag `<ModuleName>/vX.Y.Z` publishes that module,
+built into a single file, to GitHub Packages and then to the Gallery.
 
 | Module                                                            | Description                                                                                                            | Version |
 | :---------------------------------------------------------------- | :--------------------------------------------------------------------------------------------------------------------- | :------ |
