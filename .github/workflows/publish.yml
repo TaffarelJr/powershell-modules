@@ -1,0 +1,282 @@
+# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
+
+# Publishes one module from a release whose tag is <ModuleName>/vX.Y.Z (or
+# vX.Y.Z-label for a prerelease): built at that tag into its single-file
+# shape, packed, attached to the release, pushed to GitHub Packages, and
+# then, behind the powershell-gallery environment's approval, to the
+# PowerShell Gallery.
+#
+# Three ways in, one body: a release published in the UI, a workflow that
+# calls this one per released module, or a manual run with the tag, which
+# reruns a failed or partial publish - every step that already happened is
+# skipped or harmless.
+#
+# The dependency check runs before any approval, because
+# Publish-PSResource -NupkgPath does not check dependencies itself and the
+# Gallery accepts a package whose dependencies it does not have.
+
+name: Publish
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: The release tag to publish, <ModuleName>/vX.Y.Z[-label].
+        type: string
+        required: true
+  workflow_call:
+    inputs:
+      tag:
+        type: string
+        required: true
+
+# Two publishes would race over the same package; a queued one waits.
+concurrency:
+  group: publish
+  cancel-in-progress: false
+
+defaults:
+  run:
+    shell: pwsh
+
+env:
+  # 1.1.0 added Compress-PSResource and Publish-PSResource -NupkgPath.
+  PSRESOURCEGET_MINIMUM: 1.1.0
+  GALLERY_REPOSITORY: PSGallery
+  PACKAGES_REPOSITORY: GitHubPackages
+
+jobs:
+  package:
+    name: Build and pack
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: write # Needed to attach the package to the release
+    outputs:
+      module: ${{ steps.tag.outputs.module }}
+      version: ${{ steps.tag.outputs.version }}
+      prerelease: ${{ steps.tag.outputs.prerelease }}
+      package: ${{ steps.pack.outputs.package }}
+      gallery-url: ${{ steps.pack.outputs.gallery-url }}
+    steps:
+      - name: Read the tag
+        id: tag
+        env:
+          TAG: ${{ github.event.release.tag_name || inputs.tag }}
+          RELEASE_PRERELEASE: ${{ github.event.release.prerelease }}
+        run: |
+          $pattern = '^(TaffarelJr\.[A-Za-z][A-Za-z0-9.]*)/v(\d+\.\d+\.\d+)(?:-([A-Za-z][A-Za-z0-9]*))?$'
+          if ($env:TAG -notmatch $pattern) {
+            Write-Host "::error::Tag '$env:TAG' is not <ModuleName>/vX.Y.Z or <ModuleName>/vX.Y.Z-label."
+            exit 1
+          }
+          $module = $Matches[1]
+          $version = $Matches[2]
+          $prerelease = [string]$Matches[3]
+          # On a release event the Pre-release box and the tag's label must agree.
+          if ($env:RELEASE_PRERELEASE -ne '') {
+            $marked = $env:RELEASE_PRERELEASE -eq 'true'
+            if ($marked -ne ($prerelease -ne '')) {
+              Write-Host "::error::The release's pre-release flag is $marked but the label is '$prerelease'."
+              exit 1
+            }
+          }
+          Add-Content -LiteralPath $env:GITHUB_OUTPUT -Value "module=$module"
+          Add-Content -LiteralPath $env:GITHUB_OUTPUT -Value "version=$version"
+          Add-Content -LiteralPath $env:GITHUB_OUTPUT -Value "prerelease=$prerelease"
+
+      - name: Checkout the tag
+        uses: actions/checkout@v7
+        with:
+          ref: refs/tags/${{ github.event.release.tag_name || inputs.tag }}
+          fetch-depth: 1 # The version comes from the manifest at the tag, not from history
+          persist-credentials: false # Nothing here pushes; the asset upload uses GH_TOKEN below
+
+      - name: Check the manifest matches the tag
+        env:
+          MODULE: ${{ steps.tag.outputs.module }}
+          VERSION: ${{ steps.tag.outputs.version }}
+          PRERELEASE: ${{ steps.tag.outputs.prerelease }}
+        run: |
+          $path = Join-Path src $env:MODULE "$env:MODULE.psd1"
+          if (-not (Test-Path -LiteralPath $path -PathType Leaf)) {
+            Write-Host "::error::No manifest at $path in the tagged tree."
+            exit 1
+          }
+          $manifest = Import-PowerShellDataFile -LiteralPath $path
+          $label = [string]$manifest.PrivateData.PSData['Prerelease']
+          if ($manifest.ModuleVersion -ne $env:VERSION -or $label -ne $env:PRERELEASE) {
+            $actual = "$($manifest.ModuleVersion)/$label"
+            $wanted = "$env:VERSION/$env:PRERELEASE"
+            Write-Host "::error file=$path::ModuleVersion/Prerelease is $actual; the tag says $wanted."
+            exit 1
+          }
+
+      # Publish-PSResource -NupkgPath skips its dependency check and the
+      # Gallery takes a package whose dependencies it lacks, so this is the
+      # one check there is. A stable module may not depend on a prerelease.
+      - name: Check every dependency is already on the Gallery
+        env:
+          MODULE: ${{ steps.tag.outputs.module }}
+          PRERELEASE: ${{ steps.tag.outputs.prerelease }}
+        run: |
+          Import-Module Microsoft.PowerShell.PSResourceGet -MinimumVersion $env:PSRESOURCEGET_MINIMUM
+          $manifest = Import-PowerShellDataFile -LiteralPath (Join-Path src $env:MODULE "$env:MODULE.psd1")
+          $required = if ($manifest.ContainsKey('RequiredModules')) { @($manifest.RequiredModules) } else { @() }
+          $missing = @(foreach ($entry in $required) {
+            $found = Find-PSResource -Name $entry.ModuleName -Version "[$($entry.ModuleVersion),)" `
+              -Repository $env:GALLERY_REPOSITORY -Prerelease:($env:PRERELEASE -ne '') `
+              -ErrorAction SilentlyContinue
+            if (-not $found) { "$($entry.ModuleName) (>= $($entry.ModuleVersion))" }
+          })
+          if ($missing) {
+            $advice = 'Publish each dependency first, lowest in the chain first, ' +
+              'then rerun this workflow with the same tag.'
+            Write-Host "::error::Not on the Gallery yet: $($missing -join ', '). $advice"
+            exit 1
+          }
+          Write-Host 'Every dependency is on the Gallery.'
+
+      - name: Build the module into one file
+        env:
+          MODULE: ${{ steps.tag.outputs.module }}
+        run: ./build/Build-Module.ps1 -Name $env:MODULE
+
+      # src/ goes on PSModulePath so Test-ModuleManifest resolves RequiredModules;
+      # the built folder is packed whole, so only what the build put there ships.
+      - name: Check and pack the built module
+        id: pack
+        env:
+          MODULE: ${{ steps.tag.outputs.module }}
+          VERSION: ${{ steps.tag.outputs.version }}
+          PRERELEASE: ${{ steps.tag.outputs.prerelease }}
+        run: |
+          Import-Module Microsoft.PowerShell.PSResourceGet -MinimumVersion $env:PSRESOURCEGET_MINIMUM
+          $separator = [IO.Path]::PathSeparator
+          $env:PSModulePath = "$(Join-Path $PWD src)$separator$env:PSModulePath"
+          $built = Join-Path out $env:MODULE
+          Test-ModuleManifest -Path (Join-Path $built "$env:MODULE.psd1") -ErrorAction Stop | Out-Null
+          Invoke-ScriptAnalyzer -Path $built -Recurse -Settings ./PSScriptAnalyzerSettings.psd1 -EnableExit
+          New-Item -ItemType Directory -Path packages | Out-Null
+          $package = Compress-PSResource -Path $built -DestinationPath packages -PassThru
+          $full = "$env:VERSION" + $(if ($env:PRERELEASE) { "-$env:PRERELEASE" })
+          $url = "https://www.powershellgallery.com/packages/$env:MODULE/$full"
+          Add-Content -LiteralPath $env:GITHUB_OUTPUT -Value "package=$($package.Name)"
+          Add-Content -LiteralPath $env:GITHUB_OUTPUT -Value "gallery-url=$url"
+          $files = (Get-ChildItem -LiteralPath $built -Recurse -File |
+            ForEach-Object { [IO.Path]::GetRelativePath($built, $_.FullName) }) -join ', '
+          Add-Content -LiteralPath $env:GITHUB_STEP_SUMMARY -Value @(
+            "## $env:MODULE $full", ''
+            "- Package: $($package.Name) ($('{0:N0}' -f $package.Length) bytes)"
+            "- Files: $files"
+            "- Gallery page once published: $url"
+          )
+
+      # One artifact per module, because a caller can run this workflow
+      # several times in one run and artifact names must be unique per run.
+      - name: Upload the package
+        uses: actions/upload-artifact@v7
+        with:
+          name: package-${{ steps.tag.outputs.module }}
+          path: packages/*.nupkg
+          if-no-files-found: error
+          retention-days: 30
+
+      # --clobber replaces an asset of the same name, so a rerun is harmless.
+      - name: Attach the package to the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ github.event.release.tag_name || inputs.tag }}
+          PACKAGE: ${{ steps.pack.outputs.package }}
+        run: gh release upload $env:TAG (Join-Path packages $env:PACKAGE) --clobber
+
+  github-packages:
+    name: Publish to GitHub Packages
+    needs: package
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      packages: write # Needed to push the .nupkg to this account's NuGet feed
+    steps:
+      - name: Download the package
+        uses: actions/download-artifact@v8
+        with:
+          name: package-${{ needs.package.outputs.module }}
+          path: packages
+
+      # Whether the installation token may create a NEW package on a
+      # user-scoped feed is undocumented; PACKAGES_TOKEN, a classic PAT with
+      # write:packages, is the fallback if it may not. A version already on
+      # the feed answers 409, which on a rerun is success.
+      - name: Publish the package
+        env:
+          API_KEY: ${{ secrets.PACKAGES_TOKEN || github.token }}
+          OWNER: ${{ github.repository_owner }}
+          PACKAGE: ${{ needs.package.outputs.package }}
+        run: |
+          Import-Module Microsoft.PowerShell.PSResourceGet -MinimumVersion $env:PSRESOURCEGET_MINIMUM
+          Register-PSResourceRepository -Name $env:PACKAGES_REPOSITORY `
+            -Uri "https://nuget.pkg.github.com/$env:OWNER/index.json" -Trusted
+          try {
+            Publish-PSResource -NupkgPath (Join-Path packages $env:PACKAGE) `
+              -Repository $env:PACKAGES_REPOSITORY -ApiKey $env:API_KEY -ErrorAction Stop
+            Write-Host "Pushed $env:PACKAGE to GitHub Packages."
+          }
+          catch {
+            if ($_.Exception.Message -match '\b409\b') {
+              Write-Host "::notice::$env:PACKAGE is already on GitHub Packages; nothing to do."
+              exit 0
+            }
+            throw
+          }
+
+  gallery:
+    name: Publish to the PowerShell Gallery
+    needs: [package, github-packages]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    # With the owner as the environment's required reviewer, this job waits
+    # for approval before it starts, so nothing reaches the Gallery unseen.
+    environment:
+      name: powershell-gallery
+      url: ${{ needs.package.outputs.gallery-url }}
+    permissions: {} # Nothing from GitHub is needed; the Gallery key is a repository secret
+    env:
+      PSGALLERY_API_KEY: ${{ secrets.POWERSHELL_GALLERY_API_KEY }}
+    steps:
+      - name: Download the package
+        uses: actions/download-artifact@v8
+        with:
+          name: package-${{ needs.package.outputs.module }}
+          path: packages
+
+      # A Gallery version is permanent, so one already there is reported and
+      # left alone: that is what a rerun after a partial publish meets.
+      - name: Publish the package, unless this version is already there
+        env:
+          MODULE: ${{ needs.package.outputs.module }}
+          VERSION: ${{ needs.package.outputs.version }}
+          PRERELEASE: ${{ needs.package.outputs.prerelease }}
+          PACKAGE: ${{ needs.package.outputs.package }}
+          URL: ${{ needs.package.outputs.gallery-url }}
+        run: |
+          Import-Module Microsoft.PowerShell.PSResourceGet -MinimumVersion $env:PSRESOURCEGET_MINIMUM
+          $full = "$env:VERSION" + $(if ($env:PRERELEASE) { "-$env:PRERELEASE" })
+          $existing = @(Find-PSResource -Name $env:MODULE -Version $full `
+            -Repository $env:GALLERY_REPOSITORY -Prerelease:($env:PRERELEASE -ne '') `
+            -ErrorAction SilentlyContinue | Where-Object { [string]$_.Prerelease -eq $env:PRERELEASE })
+          if ($existing) {
+            Write-Host "::notice::$env:MODULE $full is already on the Gallery; nothing to do."
+            Add-Content -LiteralPath $env:GITHUB_STEP_SUMMARY -Value "Already on the Gallery: $env:URL"
+            exit 0
+          }
+          if (-not $env:PSGALLERY_API_KEY) {
+            Write-Host '::error::The POWERSHELL_GALLERY_API_KEY secret is empty or not set.'
+            exit 1
+          }
+          Publish-PSResource -NupkgPath (Join-Path packages $env:PACKAGE) `
+            -Repository $env:GALLERY_REPOSITORY -ApiKey $env:PSGALLERY_API_KEY -ErrorAction Stop
+          Add-Content -LiteralPath $env:GITHUB_STEP_SUMMARY -Value "Published to the Gallery: $env:URL"
