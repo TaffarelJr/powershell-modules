@@ -1,0 +1,138 @@
+# yaml-language-server: $schema=https://json.schemastore.org/codecov.json
+
+#───────────────────────────────────────────────────────────────────────────────
+# Coverage reporting
+#
+# The thresholds, the comment and the checks follow the owner's .github base.
+# This repository adds its ignore entries and one flag per module: CI tests
+# only the modules a change affects, so most flags do not upload on a given
+# commit and carry their last figure forward.
+#───────────────────────────────────────────────────────────────────────────────
+
+codecov:
+  require_ci_to_pass: true
+  notify:
+    wait_for_ci: true
+    notify_error: true # Say so in the PR when an upload failed
+
+#───────────────────────────────────────────────────────────────────────────────
+# Status checks
+#───────────────────────────────────────────────────────────────────────────────
+
+coverage:
+  precision: 1
+  round: down
+  range: '90...95' # Red below 90, green above 95
+
+  status:
+    # Coverage across the whole repo, compared against the base commit.
+    project:
+      default:
+        target: auto # Do not drop below where we already are
+        threshold: 1% # But do not fail over rounding noise
+        # A new repo, or a PR from before coverage was ever uploaded, has no
+        # base to compare against. Failing then blocks the very first PR for
+        # no useful reason.
+        if_not_found: success
+        if_ci_failed: error
+
+    # Coverage of only the lines this PR touched. This is the one that
+    # matters: it holds new code to a standard without demanding that old
+    # code be back-filled first.
+    patch:
+      default:
+        # No threshold here. It applies even to an absolute target, so a 2%
+        # tolerance would quietly make the real gate 93%. To relax this, lower
+        # the target, so the number says what it enforces.
+        target: 95%
+        if_not_found: success
+        if_ci_failed: error
+
+#───────────────────────────────────────────────────────────────────────────────
+# Ignored paths
+#
+# Coverage of the test suite itself, or of build tooling, is not information.
+#───────────────────────────────────────────────────────────────────────────────
+
+ignore:
+  - 'test/**'
+  - '**/test/**'
+  - 'build/**'
+  - 'out/**' # Built copies of src; measuring them would count every line twice
+  - 'docs/**'
+
+#───────────────────────────────────────────────────────────────────────────────
+# Flags
+#
+# One flag per module, named by the short name used everywhere in this
+# repository. A module whose tests did not run on a commit keeps its last
+# uploaded figure (carryforward), so the project figure stays whole when a
+# change tests only the modules it affects. A module that is removed must
+# have its flag removed here too, or its stale figure lives on.
+#───────────────────────────────────────────────────────────────────────────────
+
+flag_management:
+  default_rules:
+    carryforward: true
+  individual_flags:
+    - name: ConsoleOutput
+      paths: [src/TaffarelJr.ConsoleOutput/**]
+    - name: FileText
+      paths: [src/TaffarelJr.FileText/**]
+    - name: Git
+      paths: [src/TaffarelJr.Git/**]
+    - name: GitHub.Account
+      paths: [src/TaffarelJr.GitHub.Account/**]
+    - name: GitHub.Core
+      paths: [src/TaffarelJr.GitHub.Core/**]
+    - name: GitHub.Gists
+      paths: [src/TaffarelJr.GitHub.Gists/**]
+    - name: GitHub.Issues
+      paths: [src/TaffarelJr.GitHub.Issues/**]
+    - name: GitHub.PullRequests
+      paths: [src/TaffarelJr.GitHub.PullRequests/**]
+    - name: GitHub.Releases
+      paths: [src/TaffarelJr.GitHub.Releases/**]
+    - name: GitHub.Repositories
+      paths: [src/TaffarelJr.GitHub.Repositories/**]
+    - name: GitHub.Search
+      paths: [src/TaffarelJr.GitHub.Search/**]
+    - name: GitHub.WorkflowCommands
+      paths: [src/TaffarelJr.GitHub.WorkflowCommands/**]
+    - name: GitHub.Workflows
+      paths: [src/TaffarelJr.GitHub.Workflows/**]
+    - name: ProcessInvocation
+      paths: [src/TaffarelJr.ProcessInvocation/**]
+    - name: RequiredModules
+      paths: [src/TaffarelJr.RequiredModules/**]
+    - name: Tally
+      paths: [src/TaffarelJr.Tally/**]
+    - name: TestKit
+      paths: [src/TaffarelJr.TestKit/**]
+    - name: TestRunner
+      paths: [src/TaffarelJr.TestRunner/**]
+    - name: UserInput
+      paths: [src/TaffarelJr.UserInput/**]
+    - name: VSCode
+      paths: [src/TaffarelJr.VSCode/**]
+
+#───────────────────────────────────────────────────────────────────────────────
+# Pull request comment and checks
+#
+# Only the header shows unexpanded - Codecov folds everything after it - so the
+# header carries the summary and the files needing attention, and the rest is
+# there for when it is wanted.
+#───────────────────────────────────────────────────────────────────────────────
+
+comment:
+  layout: header, diff, flags, files, changes, condensed_footer
+  behavior: default
+  require_changes: false
+  require_base: false
+  require_head: false
+  hide_project_coverage: false
+  show_carryforward_flags: true # Most flags are carried forward on any one commit
+
+github_checks:
+  # Inline annotations on uncovered lines in the diff view.
+  annotations: true

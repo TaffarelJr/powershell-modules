@@ -1,0 +1,4 @@
+out/
+packages/
+test/coverage/
+test/results/
