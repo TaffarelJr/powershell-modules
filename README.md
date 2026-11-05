@@ -14,6 +14,7 @@ built into a single file, to GitHub Packages and then to the Gallery.
 | [Git](src/TaffarelJr.Git)                                         | Wraps the git CLI - branches, remotes, staging, commits, push/pull, tags, merging, and stashing.                       | -       |
 | [GitHub.Account](src/TaffarelJr.GitHub.Account)                   | Wraps gh's own auth, account switching, credential-helper setup, orgs, and local config.                               | -       |
 | [GitHub.Core](src/TaffarelJr.GitHub.Core)                         | Shared plumbing the gh-based TaffarelJr.GitHub.* modules build on.                                                     | -       |
+| [GitHub.Gists](src/TaffarelJr.GitHub.Gists)                       | Wraps the gh CLI for gists - create, read, edit, rename files, clone, and delete.                                      | -       |
 | [GitHub.Issues](src/TaffarelJr.GitHub.Issues)                     | Wraps the gh CLI for issues - create, edit, comment, transfer, and manage their lifecycle.                             | -       |
 | [GitHub.PullRequests](src/TaffarelJr.GitHub.PullRequests)         | Wraps the gh CLI for pull requests - create, review, merge, comment, and manage their lifecycle.                       | -       |
 | [GitHub.Releases](src/TaffarelJr.GitHub.Releases)                 | Wraps the gh CLI for releases and their assets - create, edit, publish, upload, download.                              | -       |
@@ -44,6 +45,7 @@ graph LR
     Git["Git"]
     GitHubAccount["GitHub.Account"]
     GitHubCore["GitHub.Core"]
+    GitHubGists["GitHub.Gists"]
     GitHubIssues["GitHub.Issues"]
     GitHubPullRequests["GitHub.PullRequests"]
     GitHubReleases["GitHub.Releases"]
@@ -61,6 +63,8 @@ graph LR
     GitHubAccount --> GitHubCore
     GitHubAccount --> ProcessInvocation
     GitHubCore --> ProcessInvocation
+    GitHubGists --> GitHubCore
+    GitHubGists --> ProcessInvocation
     GitHubIssues --> GitHubCore
     GitHubIssues --> ProcessInvocation
     GitHubPullRequests --> GitHubCore
