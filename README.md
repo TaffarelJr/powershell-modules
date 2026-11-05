@@ -16,6 +16,7 @@ built into a single file, to GitHub Packages and then to the Gallery.
 | [Tally](src/TaffarelJr.Tally)                                     | A generic named-counter utility - add, read, clear, render, and parse counts.                                          | -       |
 | [TestKit](src/TaffarelJr.TestKit)                                 | A minimal, homegrown test-writing kit - assertions, tallies, and output capture.                                       | -       |
 | [TestRunner](src/TaffarelJr.TestRunner)                           | Runs *.Tests.ps1 files under one or more folders in parallel, with a run summary and coverage on request.              | -       |
+| [UserInput](src/TaffarelJr.UserInput)                             | Composable interactive-prompting primitives - read, validate, retry, confirm.                                          | -       |
 
 ## Dependencies
 
@@ -36,10 +37,12 @@ graph LR
     Tally["Tally"]
     TestKit["TestKit"]
     TestRunner["TestRunner"]
+    UserInput["UserInput"]
 
     TestRunner --> ConsoleOutput
     TestRunner --> ProcessInvocation
     TestRunner --> RequiredModules
     TestRunner --> Tally
+    UserInput --> ConsoleOutput
 ```
 <!-- /dependency-diagram -->
