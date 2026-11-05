@@ -14,6 +14,7 @@ built into a single file, to GitHub Packages and then to the Gallery.
 | [RequiredModules](src/TaffarelJr.RequiredModules)                 | Declares, checks, installs, updates, and imports a script's required Gallery modules.                                  | -       |
 | [Tally](src/TaffarelJr.Tally)                                     | A generic named-counter utility - add, read, clear, render, and parse counts.                                          | -       |
 | [TestKit](src/TaffarelJr.TestKit)                                 | A minimal, homegrown test-writing kit - assertions, tallies, and output capture.                                       | -       |
+| [TestRunner](src/TaffarelJr.TestRunner)                           | Runs *.Tests.ps1 files under one or more folders in parallel, with a run summary and coverage on request.              | -       |
 
 ## Dependencies
 
@@ -32,5 +33,11 @@ graph LR
     RequiredModules["RequiredModules"]
     Tally["Tally"]
     TestKit["TestKit"]
+    TestRunner["TestRunner"]
+
+    TestRunner --> ConsoleOutput
+    TestRunner --> ProcessInvocation
+    TestRunner --> RequiredModules
+    TestRunner --> Tally
 ```
 <!-- /dependency-diagram -->
