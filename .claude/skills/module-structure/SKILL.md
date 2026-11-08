@@ -95,7 +95,7 @@ Copy `src/TaffarelJr.Tally/TaffarelJr.Tally.psm1` (no dependencies) or
 
 Copy `src/TaffarelJr.Tally/TaffarelJr.Tally.psd1` and keep its key order.
 
-- `ModuleVersion = '0.1.0'` (`repo-workflow`), a new GUID,
+- `ModuleVersion = '0.1.0'` for a new module, a new GUID,
   `PowerShellVersion = '7.4'` and `CompatiblePSEditions = @('Core')`.
 - `Author` and `CompanyName` are the holder named in `LICENSE`, and `Copyright`
   is `(c) <year> <holder>.` from `LICENSE`'s line (the public-surface test
@@ -151,11 +151,10 @@ Copy `src/TaffarelJr.Tally/TaffarelJr.Tally.psd1` and keep its key order.
 
 ## Versioning
 
-Every module stays `0.1.0` until real Gallery publishing starts: no version
-bumps (`repo-workflow` says how fixes are committed). After publishing, a tag is
-`<ModuleName>/vX.Y.Z` (a bare `vX.Y.Z` is ambiguous in a repo of many modules);
-the manifest's `ModuleVersion` is what is published. What a module needs before
-its first publish is in `publishing-modules`.
+A published version's tag is `<ModuleName>/vX.Y.Z` (a bare `vX.Y.Z` is
+ambiguous in a repo of many modules), and the manifest's `ModuleVersion` is
+what is published. What a module needs before its first publish is in
+`publishing-modules`.
 
 ## Adding a module
 

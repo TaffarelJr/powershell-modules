@@ -20,8 +20,7 @@ must never be missed are here.
 - Open every pull request as a draft. Only the owner marks one ready for review
   and merges it; you never merge one or push to `main`. Push a branch only for a
   pull request the owner asked for. `repo-workflow` says how commits and pull
-  requests are shaped; there are no version bumps until real Gallery
-  publishing starts.
+  requests are shaped.
 - Address every comment on a pull request, from a person or a bot: fix what
   applies, reply concisely, resolve the thread once that is appropriate, and
   ask when a comment is not clear.

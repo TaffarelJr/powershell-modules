@@ -25,6 +25,11 @@ description: "PowerShell style for this repository's modules, scripts, manifests
   noun, with no decorative prefix.
 - Write no comments except a non-obvious reason, on the line it explains.
   Tests keep their `# Arrange`, `# Act` and `# Assert` markers.
+- Write .NET types by their short name, with a `using namespace` line at the
+  top of the file for each namespace (`[List[string]]`, `[Path]`), never the
+  full name. Two places keep full names: an `[OutputType()]` argument, which
+  PowerShell resolves without the file's usings, and a script block that runs
+  in another runspace (`-Parallel`, `AddScript`), which never sees them.
 - Stream results one at a time (`return $results`); never protect an array
   with a leading comma. Callers that need an array wrap the call in `@()`.
 - Use `-LiteralPath` for a filesystem cmdlet on a variable path, put `$null`
