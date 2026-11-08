@@ -28,6 +28,7 @@ built into a single file, to GitHub Packages and then to the Gallery.
 | [TestKit](src/TaffarelJr.TestKit)                                 | A minimal, homegrown test-writing kit - assertions, tallies, and output capture.                                       | -       |
 | [TestRunner](src/TaffarelJr.TestRunner)                           | Runs *.Tests.ps1 files under one or more folders in parallel, with a run summary and coverage on request.              | -       |
 | [UserInput](src/TaffarelJr.UserInput)                             | Composable interactive-prompting primitives - read, validate, retry, confirm.                                          | -       |
+| [VSCode](src/TaffarelJr.VSCode)                                   | Finds and launches VS Code, and authors multi-root .code-workspace files.                                              | -       |
 
 ## Dependencies
 
@@ -60,6 +61,7 @@ graph LR
     TestKit["TestKit"]
     TestRunner["TestRunner"]
     UserInput["UserInput"]
+    VSCode["VSCode"]
 
     Git --> ProcessInvocation
     GitHubAccount --> GitHubCore
@@ -85,5 +87,6 @@ graph LR
     TestRunner --> RequiredModules
     TestRunner --> Tally
     UserInput --> ConsoleOutput
+    VSCode --> FileText
 ```
 <!-- /dependency-diagram -->
