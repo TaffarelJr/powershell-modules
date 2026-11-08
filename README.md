@@ -12,6 +12,7 @@ built into a single file, to GitHub Packages and then to the Gallery.
 | [ConsoleOutput](src/TaffarelJr.ConsoleOutput)                     | Indent-aware console status output - success/skip/warn lines, progress, banners.                                       | -       |
 | [ProcessInvocation](src/TaffarelJr.ProcessInvocation)             | Runs an external command with consistent output capture and error handling.                                            | -       |
 | [RequiredModules](src/TaffarelJr.RequiredModules)                 | Declares, checks, installs, updates, and imports a script's required Gallery modules.                                  | -       |
+| [Tally](src/TaffarelJr.Tally)                                     | A generic named-counter utility - add, read, clear, render, and parse counts.                                          | -       |
 | [TestKit](src/TaffarelJr.TestKit)                                 | A minimal, homegrown test-writing kit - assertions, tallies, and output capture.                                       | -       |
 
 ## Dependencies
@@ -29,6 +30,7 @@ graph LR
     ConsoleOutput["ConsoleOutput"]
     ProcessInvocation["ProcessInvocation"]
     RequiredModules["RequiredModules"]
+    Tally["Tally"]
     TestKit["TestKit"]
 ```
 <!-- /dependency-diagram -->
