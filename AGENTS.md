@@ -12,6 +12,12 @@ them under `test/<ModuleName>/`, and each module's README says what it does.
 - Files are UTF-8 without a BOM, with CRLF line endings.
 - Aim for 80 columns, 120 at most; break a long call at parameter boundaries
   or splat it. No comments except a non-obvious reason, on the line it explains.
+- Write .NET types by their short name, with a `using namespace` line at the
+  top of the file for each namespace (`[List[string]]`, `[Path]`), never
+  `[System.Collections.Generic.List[string]]`. Two places keep full names: an
+  `[OutputType()]` argument, which PowerShell resolves without the file's
+  usings, and a script block that runs in another runspace (`-Parallel`,
+  `AddScript`), which never sees them.
 - Functions stream their results one at a time (`return $results`, callers
   wrap in `@()`), never a leading-comma array.
 - `PSScriptAnalyzerSettings.psd1` (root for `src`, `test/` for the tests) is

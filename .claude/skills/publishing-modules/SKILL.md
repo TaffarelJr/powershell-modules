@@ -16,9 +16,8 @@ when_to_use: >-
 
 # Publishing modules
 
-Nothing is published yet: every module stays `0.1.0` until the owner starts
-real Gallery publishing (`repo-workflow`). This skill is what that first
-publish, and every one after it, must get right. `checklist.md` is the list to
+This skill is what a module's first publish, and every one after it, must get
+right. `checklist.md` is the list to
 walk for a module; it cites the documentation behind each item.
 
 A Gallery version is permanent. It can be unlisted, so it no longer shows in

@@ -1,0 +1,150 @@
+# TaffarelJr.ConsoleOutput
+
+Indent-aware console status output for PowerShell scripts:
+success/skip/warn/failure lines, `Doing`/`Done` progress,
+numbered steps, and word-wrapped headers and box-drawn banners.
+
+Part of the [powershell-modules] collection.
+
+## Install
+
+```powershell
+Install-PSResource -Name TaffarelJr.ConsoleOutput
+```
+
+Requires PowerShell 7.4 or later.
+
+## Usage
+
+```powershell
+Import-Module TaffarelJr.ConsoleOutput
+
+Write-Step 'Build'
+Write-Doing 'Compiling'
+Write-Done
+Write-Success 'Build complete'
+
+# Invoke-Doing opens the line, runs the block, and closes the line
+# with the last string the block returns ("done" when it returns none)
+Invoke-Doing -Text 'Packing' -ScriptBlock {
+    Start-Sleep -Seconds 1
+    'packed 3 files'
+}
+
+# Lines go where the indent stack puts them
+Invoke-Indented {
+    Write-Info 'one level in'
+}
+```
+
+`Write-Done` ends an open line in green,
+in dark gray with `-Skip` ("already done"),
+and in yellow with `-Warn`, for an outcome that is neither,
+such as "would create".
+
+## Good to know
+
+- Everything is written with `Write-Host`, so `6>$null` silences it.
+  Capturing that stream instead (`6>&1`, `*>&1 | Out-File`) turns every
+  `Write-Host` call into a line of its own, so a `Write-Doing` line and its
+  `Write-Done` outcome land on separate lines.
+- The indent-mismatch warnings from `Pop-Indent` and `Invoke-Indented` go to
+  the warning stream, not to `Write-Host`,
+  and follow the caller's `$WarningPreference` and `-WarningAction`.
+- `Invoke-Doing` holds back the warnings its block writes
+  and writes them after the closed line,
+  and a block that throws closes the line with "failed" and is raised again.
+  Only warnings are held: an error the block writes without throwing,
+  verbose and information messages, and other commands' host output
+  run on to the end of the open line, as they do after `Write-Doing`.
+  A block that opens a `Write-Doing` line of its own
+  gets its outcome on a line of its own, never on the inner line.
+  A block left with `break` or `continue` closes it with "stopped"
+  and loses the output it had written, though not its warnings.
+  When the caller's `$WhatIfPreference` is on,
+  the line is written only after the block has run,
+  so the `What if:` lines of the block's own commands do not land on it.
+- `Invoke-Doing` takes the block's last string as the outcome
+  and leaves it out of the output.
+  For a block whose output is data, such as lines read from a file,
+  pass `-KeepOutput`: every item is passed on and the line closes with "done".
+- Every line goes where the indent stack puts it:
+  `Push-Indent` and `Pop-Indent`, or `Invoke-Indented` around a block.
+  `Invoke-Indented` puts the indent back even when its block throws.
+  A script that fails between a `Push-Indent` and its `Pop-Indent`
+  leaves its levels behind for the rest of the session;
+  `Reset-Indent` takes them all off at once
+  and, like `Clear-Step`, ends a `Write-Doing` line the failure left open.
+- Only this module's own writers close an open `Write-Doing` line first.
+  `Write-Warning`, a native command, or pipeline output runs on to the end of
+  it, so finish the line with `Write-Done` before any of those.
+- The markers (`▶`, `✅`, `⚠️`, ...) need a UTF-8 output encoding: a Windows
+  host whose `[Console]::OutputEncoding` is not UTF-8 prints each one as one
+  or two `?`.
+- Banners span the console window, and headers two columns less;
+  a header's text rows end with their text, with no padding after it.
+  When the process's own output goes to a file or a pipe
+  (`pwsh -File build.ps1 > build.log`), or there is no window,
+  they fit within 80 columns;
+  redirecting a PowerShell stream (`*> log.txt`) inside a terminal
+  keeps the window's width.
+- The indent, the open `Write-Doing` line, and the step count are kept per
+  PowerShell runspace. Output from several runspaces at once interleaves.
+- The exported `$DefaultIndentWidth` is read-only, so remove the module with
+  `Remove-Module -Force`: without it the removal fails part way and leaves the
+  module listed with its commands gone.
+- A box is sized in characters, not screen columns, so wide characters and
+  emoji can push its right border out of line.
+  Color codes and hyperlink markup take no room.
+
+Every function ships full comment-based help -
+run `Get-Help <FunctionName> -Full` for its parameters and examples.
+
+## Errors
+
+A failing call is a terminating error for that call:
+the function stops where it failed,
+and `-ErrorAction SilentlyContinue` and `Ignore`
+neither skip nor hide the error.
+It ends the call, not the caller's script,
+unless the script sets `$ErrorActionPreference = 'Stop'`
+(the `pwsh` shell of GitHub Actions already does)
+or catches the error with `try` and `catch`.
+
+A piped value that fails to bind,
+such as a plain string piped to `Write-Field`, which has no `Name` property,
+or a list nested inside the piped list,
+is PowerShell's own error, not the function's.
+It ends the caller's script unless a `try` and `catch` catches it,
+and `-ErrorAction SilentlyContinue` or `Ignore`
+skips that value without a word;
+the values before it were already written.
+
+Apart from a parameter that fails validation,
+two failures are to be expected.
+The first is a warning from `Pop-Indent`, `Invoke-Indented` or `Invoke-Doing`
+that the caller's `-WarningAction Stop`
+or `$WarningPreference = 'Stop'` turns into an error,
+under PowerShell's own ID for that, which ends with the command.
+
+The second is an error raised by the script block
+given to `Invoke-Indented` or `Invoke-Doing`.
+It comes out carrying the block's own exception,
+with an error ID that names the exception type and the command:
+`RuntimeException,Invoke-Indented` for a plain `throw`.
+An error that already has an ID of its own,
+such as a built-in cmdlet's or one written with `Write-Error -ErrorId`,
+keeps it, with the command added to the end of it.
+The block's error is the one raised
+even when `-WarningAction Stop` would turn a warning of the command's into one.
+
+## Name collisions
+
+Another module may export a command with the same name as one of this module's,
+and the last one imported wins.
+Call it module-qualified (`TaffarelJr.ConsoleOutput\<Command>`)
+or import this module with `-Prefix`.
+
+<!-- Public URIs (alphabetical) -->
+
+[powershell-modules]: https://github.com/TaffarelJr/powershell-modules
