@@ -20,6 +20,7 @@ built into a single file, to GitHub Packages and then to the Gallery.
 | [GitHub.Releases](src/TaffarelJr.GitHub.Releases)                 | Wraps the gh CLI for releases and their assets - create, edit, publish, upload, download.                              | -       |
 | [GitHub.Repositories](src/TaffarelJr.GitHub.Repositories)         | Wraps the gh CLI for repo admin - create, edit, delete, fork, sync, labels, deploy keys, rulesets, secrets, variables. | -       |
 | [GitHub.Search](src/TaffarelJr.GitHub.Search)                     | Wraps the gh CLI to search code, commits, issues, pull requests, and repositories.                                     | -       |
+| [GitHub.WorkflowCommands](src/TaffarelJr.GitHub.WorkflowCommands) | The GitHub Actions runner protocol - log annotations, log groups, masking, outputs, env vars, PATH, summaries, state.  | -       |
 | [GitHub.Workflows](src/TaffarelJr.GitHub.Workflows)               | Wraps the gh CLI for Actions - dispatch/monitor workflow runs, manage workflows, caches.                               | -       |
 | [ProcessInvocation](src/TaffarelJr.ProcessInvocation)             | Runs an external command with consistent output capture and error handling.                                            | -       |
 | [RequiredModules](src/TaffarelJr.RequiredModules)                 | Declares, checks, installs, updates, and imports a script's required Gallery modules.                                  | -       |
@@ -51,6 +52,7 @@ graph LR
     GitHubReleases["GitHub.Releases"]
     GitHubRepositories["GitHub.Repositories"]
     GitHubSearch["GitHub.Search"]
+    GitHubWorkflowCommands["GitHub.WorkflowCommands"]
     GitHubWorkflows["GitHub.Workflows"]
     ProcessInvocation["ProcessInvocation"]
     RequiredModules["RequiredModules"]
@@ -75,6 +77,7 @@ graph LR
     GitHubRepositories --> ProcessInvocation
     GitHubSearch --> GitHubCore
     GitHubSearch --> ProcessInvocation
+    GitHubWorkflowCommands --> ProcessInvocation
     GitHubWorkflows --> GitHubCore
     GitHubWorkflows --> ProcessInvocation
     TestRunner --> ConsoleOutput
