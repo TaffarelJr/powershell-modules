@@ -1,0 +1,21 @@
+# Changelog
+
+The format follows [Keep a Changelog][changelog], and the module follows
+[Semantic Versioning][semver].
+
+## [Unreleased]
+
+### Added
+
+- Initial release: the indent for a script's console output, kept per
+  runspace as a stack of levels. `Push-Indent` adds a level, `Pop-Indent`
+  takes the latest one off, `Get-Indent` returns the indent as spaces,
+  `Get-IndentSize` returns it as a number, and `Reset-Indent` takes every
+  level off at once. `Invoke-Indented` runs a script block one level in and
+  puts the indent back when the block ends, even when it throws. The exported
+  `$DefaultIndentWidth` is the width a level has when none is given.
+
+<!-- Public URIs (alphabetical) -->
+
+[changelog]: https://keepachangelog.com/en/1.1.0/
+[semver]: https://semver.org/spec/v2.0.0.html
