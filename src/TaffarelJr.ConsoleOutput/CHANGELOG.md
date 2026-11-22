@@ -14,6 +14,10 @@ The format follows [Keep a Changelog][changelog], and the module follows
   level off at once. `Invoke-Indented` runs a script block one level in and
   puts the indent back when the block ends, even when it throws. The exported
   `$DefaultIndentWidth` is the width a level has when none is given.
+- Status lines, each written to the host at the current indent, behind its own
+  marker and in its own color: `Show-Detail`, a continuation line that sits
+  under the text of the line above it, `Show-Failure`, `Show-Info`,
+  `Show-Skip`, `Show-Success` and `Show-Warning`.
 
 <!-- Public URIs (alphabetical) -->
 

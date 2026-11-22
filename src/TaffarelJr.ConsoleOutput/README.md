@@ -1,10 +1,10 @@
 # TaffarelJr.ConsoleOutput
 
-The indent for a PowerShell script's console output:
-add and take off levels, get the indent as spaces to print or as a number,
-reset it after a failure,
-or run a script block one level in
-and put the indent back when the block ends, even when it throws.
+Indent-aware console status lines for PowerShell scripts:
+detail, failure, info, skip, success, and warning lines,
+each with its own emoji marker and color,
+printed at an indent you add and take off levels of,
+or run a script block one level in.
 
 Part of the [powershell-modules] collection.
 
@@ -21,35 +21,49 @@ Requires PowerShell 7.4 or later.
 ```powershell
 Import-Module TaffarelJr.ConsoleOutput
 
-function Write-Line {
-    param([string]$Text)
-    Write-Host "$(Get-Indent)$Text"
-}
-
-Write-Line 'Building'
+Show-Info 'Building'
 Invoke-Indented {
-    Write-Line 'compiling'
-    Invoke-Indented -Width 4 {
-        Write-Line 'one file'
-    }
+    Show-Success 'Compiled'
+    Show-Skip 'Packages are already restored'
+    Show-Warning 'The cache is stale'
+    Show-Failure 'Tests failed'
+    Show-Detail 'See test.log for the output.'
 }
 
-# Building
-#   compiling
-#       one file
+# ℹ️  Building
+#   ✅ Compiled
+#   ⏭️  Packages are already restored
+#   ⚠️  The cache is stale
+#   ❌ Tests failed
+#      See test.log for the output.
 
 # Push-Indent and Pop-Indent do the same without a block
 Push-Indent
-Write-Line 'one level in'
+Show-Info 'one level in'
 Pop-Indent
 ```
 
-`Get-Indent` returns the indent as spaces, ready to put in front of a line,
+Each `Show-*` command takes its text as the first argument or from the pipeline.
+`Show-Detail` has no marker:
+it sits three spaces in, under the text of the line above it.
+
+`Get-Indent` returns the indent as spaces,
+ready to put in front of a line of your own,
 and `Get-IndentSize` returns the same indent as a number.
 `$DefaultIndentWidth` is the width of a level when `-Width` is not given.
 
 ## Good to know
 
+- Every `Show-*` command uses `Write-Host`, so `6>$null` silences it,
+  and nothing it prints reaches the pipeline.
+- `Show-Warning` prints to the host;
+  it does not write to the warning stream,
+  so `$WarningPreference` and `-WarningAction` do not apply to it.
+  Use the built-in `Write-Warning` for a warning that should honor them.
+- The markers need a UTF-8 output encoding:
+  a Windows host whose `[Console]::OutputEncoding` is not UTF-8
+  prints question marks in their place.
+- A message with line breaks has its indent and marker on the first line only.
 - `Invoke-Indented` puts the indent back even when its block throws.
   A script that fails between a `Push-Indent` and its `Pop-Indent`
   leaves its level behind for the rest of the session;

@@ -6,4 +6,4 @@ in scripts and GitHub Actions workflows across my repositories.
 
 | Module                                                            | Description                                                                                                            | Version |
 | :---------------------------------------------------------------- | :--------------------------------------------------------------------------------------------------------------------- | :------ |
-| [ConsoleOutput](src/TaffarelJr.ConsoleOutput)                     | The indent for console output - add and take off levels, read the total, run a block indented.                         | -       |
+| [ConsoleOutput](src/TaffarelJr.ConsoleOutput)                     | Indent-aware console status lines - detail, failure, info, skip, success, and warning.                                 | -       |
