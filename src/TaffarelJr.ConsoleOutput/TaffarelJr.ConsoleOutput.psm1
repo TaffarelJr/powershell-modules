@@ -1,4 +1,4 @@
-#Requires -Version 7.4
+#Requires -Version 7.6
 using namespace System.Collections.Generic
 
 Set-StrictMode -Version Latest
@@ -27,6 +27,12 @@ Export-ModuleMember -Function @(
     'Pop-Indent'
     'Push-Indent'
     'Reset-Indent'
+    'Show-Detail'
+    'Show-Failure'
+    'Show-Info'
+    'Show-Skip'
+    'Show-Success'
+    'Show-Warning'
 )
 
 Export-ModuleMember -Variable 'DefaultIndentWidth'
