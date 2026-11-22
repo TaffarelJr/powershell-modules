@@ -1,3 +1,5 @@
+New-Variable -Name SuccessMarker -Value "`u{2705} " -Option Constant -Scope Script
+
 function Show-Success {
     <#
     .SYNOPSIS
@@ -29,6 +31,6 @@ function Show-Success {
     )
 
     process {
-        Write-Host "$(Get-Indent)`u{2705} $Text" -ForegroundColor Green
+        Write-Host "$(Get-Indent)$script:SuccessMarker$Text" -ForegroundColor Green
     }
 }

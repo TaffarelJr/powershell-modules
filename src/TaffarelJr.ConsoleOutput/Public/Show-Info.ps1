@@ -1,3 +1,5 @@
+New-Variable -Name InfoMarker -Value "`u{2139}`u{FE0F}  " -Option Constant -Scope Script
+
 function Show-Info {
     <#
     .SYNOPSIS
@@ -30,6 +32,6 @@ function Show-Info {
     )
 
     process {
-        Write-Host "$(Get-Indent)`u{2139}`u{FE0F}  $Text" -ForegroundColor Gray
+        Write-Host "$(Get-Indent)$script:InfoMarker$Text" -ForegroundColor Gray
     }
 }

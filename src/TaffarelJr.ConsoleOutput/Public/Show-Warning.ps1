@@ -1,3 +1,5 @@
+New-Variable -Name WarningMarker -Value "`u{26A0}`u{FE0F}  " -Option Constant -Scope Script
+
 function Show-Warning {
     <#
     .SYNOPSIS
@@ -34,6 +36,6 @@ function Show-Warning {
     )
 
     process {
-        Write-Host "$(Get-Indent)`u{26A0}`u{FE0F}  $Text" -ForegroundColor Yellow
+        Write-Host "$(Get-Indent)$script:WarningMarker$Text" -ForegroundColor Yellow
     }
 }

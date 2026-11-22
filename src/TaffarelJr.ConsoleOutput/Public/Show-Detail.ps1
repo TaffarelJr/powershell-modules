@@ -1,3 +1,5 @@
+New-Variable -Name DetailMarker -Value '   ' -Option Constant -Scope Script
+
 function Show-Detail {
     <#
     .SYNOPSIS
@@ -32,6 +34,6 @@ function Show-Detail {
     )
 
     process {
-        Write-Host "$(Get-Indent)   $Text" -ForegroundColor DarkGray
+        Write-Host "$(Get-Indent)$script:DetailMarker$Text" -ForegroundColor DarkGray
     }
 }
