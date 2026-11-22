@@ -18,6 +18,9 @@ The format follows [Keep a Changelog][changelog], and the module follows
   marker and in its own color: `Show-Detail`, a continuation line that sits
   under the text of the line above it, `Show-Failure`, `Show-Info`,
   `Show-Skip`, `Show-Success` and `Show-Warning`.
+- `Show-Banner` and `Show-Header`, which print text in cyan at the current
+  indent, centered inside a full box or left-justified between two rules, as
+  wide as the console or, with `-Trim`, as wide as the text.
 
 <!-- Public URIs (alphabetical) -->
 
