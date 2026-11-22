@@ -1,3 +1,5 @@
+New-Variable -Name FailureMarker -Value "`u{274C} " -Option Constant -Scope Script
+
 function Show-Failure {
     <#
     .SYNOPSIS
@@ -34,6 +36,6 @@ function Show-Failure {
     )
 
     process {
-        Write-Host "$(Get-Indent)`u{274C} $Text" -ForegroundColor Red
+        Write-Host "$(Get-Indent)$script:FailureMarker$Text" -ForegroundColor Red
     }
 }

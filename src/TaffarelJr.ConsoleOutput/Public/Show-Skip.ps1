@@ -1,3 +1,5 @@
+New-Variable -Name SkipMarker -Value "`u{23ED}`u{FE0F}  " -Option Constant -Scope Script
+
 function Show-Skip {
     <#
     .SYNOPSIS
@@ -30,6 +32,6 @@ function Show-Skip {
     )
 
     process {
-        Write-Host "$(Get-Indent)`u{23ED}`u{FE0F}  $Text" -ForegroundColor DarkGray
+        Write-Host "$(Get-Indent)$script:SkipMarker$Text" -ForegroundColor DarkGray
     }
 }

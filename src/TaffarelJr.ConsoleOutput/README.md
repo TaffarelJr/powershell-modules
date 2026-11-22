@@ -1,8 +1,9 @@
 # TaffarelJr.ConsoleOutput
 
-Indent-aware console status lines for PowerShell scripts:
-detail, failure, info, skip, success, and warning lines,
-each with its own emoji marker and color,
+Indent-aware console output for PowerShell scripts:
+boxed banners, headers,
+and status lines (detail, failure, info, skip, success, and warning)
+with their own emoji markers and colors,
 printed at an indent you add and take off levels of,
 or run a script block one level in.
 
@@ -47,6 +48,28 @@ Each `Show-*` command takes its text as the first argument or from the pipeline.
 `Show-Detail` has no marker:
 it sits three spaces in, under the text of the line above it.
 
+`Show-Header` prints text between two rules,
+and `Show-Banner` prints it inside a box, both in cyan:
+
+```powershell
+Show-Header 'Build' -Trim
+Show-Banner 'BUILD FAILED' -Trim
+
+# ─────
+# Build
+# ─────
+# ┌──────────────┐
+# │ BUILD FAILED │
+# └──────────────┘
+```
+
+Each is set apart by a blank line before and after.
+They span the console by default, less the indent,
+and `-Trim` shrinks them to fit the text.
+A header keeps every line of its text at the left edge,
+and a banner centers each line of its text on its own,
+with the extra column on the right when it cannot be centered exactly.
+
 `Get-Indent` returns the indent as spaces,
 ready to put in front of a line of your own,
 and `Get-IndentSize` returns the same indent as a number.
@@ -60,10 +83,20 @@ and `Get-IndentSize` returns the same indent as a number.
   it does not write to the warning stream,
   so `$WarningPreference` and `-WarningAction` do not apply to it.
   Use the built-in `Write-Warning` for a warning that should honor them.
-- The markers need a UTF-8 output encoding:
+- The markers and the box-drawing characters need a UTF-8 output encoding:
   a Windows host whose `[Console]::OutputEncoding` is not UTF-8
   prints question marks in their place.
 - A message with line breaks has its indent and marker on the first line only.
+- `Show-Header` and `Show-Banner` give every line of their text the indent.
+  They do not wrap text:
+  a line wider than the console widens the rules or the box past it.
+  The width is the window's,
+  or 80 columns when standard output is redirected or there is no window.
+- Both measure width in characters,
+  so wide characters, emoji, and color codes in the text
+  throw the alignment off:
+  a banner's right border moves out of line,
+  and a header's rules come out wider than the text shows.
 - `Invoke-Indented` puts the indent back even when its block throws.
   A script that fails between a `Push-Indent` and its `Pop-Indent`
   leaves its level behind for the rest of the session;
