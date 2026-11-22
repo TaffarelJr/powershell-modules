@@ -11,6 +11,7 @@ function Show-Failure {
         A terminating error is better served by a plain throw and
         PowerShell's own error display. This is for a "this one thing failed"
         line alongside Show-Skip and Show-Success.
+        If a line was left open, it is ended first.
     .PARAMETER Text
         The line to print.
     .INPUTS
@@ -36,6 +37,7 @@ function Show-Failure {
     )
 
     process {
+        Show-LineBreak
         Write-Host "$(Get-Indent)$script:FailureMarker$Text" -ForegroundColor Red
     }
 }

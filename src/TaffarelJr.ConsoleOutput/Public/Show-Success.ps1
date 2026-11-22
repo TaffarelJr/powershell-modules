@@ -6,6 +6,7 @@ function Show-Success {
         Reports that something was done.
     .DESCRIPTION
         Writes the text in green, behind a check mark, at the current indent.
+        If a line was left open, it is ended first.
     .PARAMETER Text
         The line to print.
     .INPUTS
@@ -31,6 +32,7 @@ function Show-Success {
     )
 
     process {
+        Show-LineBreak
         Write-Host "$(Get-Indent)$script:SuccessMarker$Text" -ForegroundColor Green
     }
 }
