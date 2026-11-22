@@ -27,6 +27,12 @@ Export-ModuleMember -Function @(
     'Pop-Indent'
     'Push-Indent'
     'Reset-Indent'
+    'Show-Detail'
+    'Show-Failure'
+    'Show-Info'
+    'Show-Skip'
+    'Show-Success'
+    'Show-Warning'
 )
 
 Export-ModuleMember -Variable 'DefaultIndentWidth'

@@ -5,7 +5,7 @@
     Author            = 'RJ Hollberg'
     CompanyName       = 'RJ Hollberg'
     Copyright         = '(c) 2026 RJ Hollberg.'
-    Description       = 'The indent for a PowerShell script''s console output: add and take off levels, get the indent as spaces to print or as a number, reset it after a failure, or run a script block one level in and put the indent back even when the block throws.'
+    Description       = 'Indent-aware console status lines for PowerShell scripts: detail, failure, info, skip, success and warning lines, each with its own emoji marker and color, printed at an indent you add and take off levels of, or run a script block one level in.'
     PowerShellVersion = '7.4'
 
     CompatiblePSEditions = @('Core')
@@ -17,6 +17,12 @@
         'Pop-Indent'
         'Push-Indent'
         'Reset-Indent'
+        'Show-Detail'
+        'Show-Failure'
+        'Show-Info'
+        'Show-Skip'
+        'Show-Success'
+        'Show-Warning'
     )
     CmdletsToExport   = @()
     VariablesToExport = @('DefaultIndentWidth')
@@ -24,7 +30,7 @@
 
     PrivateData       = @{
         PSData = @{
-            Tags         = @('Console', 'Output', 'Indent', 'CLI', 'PSEdition_Core')
+            Tags         = @('CLI', 'Console', 'Indent', 'Output', 'PSEdition_Core', 'Status')
             ProjectUri   = 'https://github.com/TaffarelJr/powershell-modules'
             LicenseUri   = 'https://github.com/TaffarelJr/powershell-modules/blob/main/LICENSE'
             ReleaseNotes = 'https://github.com/TaffarelJr/powershell-modules/blob/main/src/TaffarelJr.ConsoleOutput/CHANGELOG.md'
