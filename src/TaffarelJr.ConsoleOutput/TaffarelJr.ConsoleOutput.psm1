@@ -1,4 +1,4 @@
-#Requires -Version 7.4
+#Requires -Version 7.6
 using namespace System.Collections.Generic
 
 Set-StrictMode -Version Latest

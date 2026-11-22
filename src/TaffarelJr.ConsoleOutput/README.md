@@ -14,7 +14,7 @@ Part of the [powershell-modules] collection.
 Install-PSResource -Name TaffarelJr.ConsoleOutput
 ```
 
-Requires PowerShell 7.4 or later.
+Requires PowerShell 7.6 or later.
 
 ## Usage
 

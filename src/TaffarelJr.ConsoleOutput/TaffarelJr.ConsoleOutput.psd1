@@ -6,7 +6,7 @@
     CompanyName       = 'RJ Hollberg'
     Copyright         = '(c) 2026 RJ Hollberg.'
     Description       = 'Indent-aware console status lines for PowerShell scripts: detail, failure, info, skip, success and warning lines, each with its own emoji marker and color, printed at an indent you add and take off levels of, or run a script block one level in.'
-    PowerShellVersion = '7.4'
+    PowerShellVersion = '7.6'
 
     CompatiblePSEditions = @('Core')
 
