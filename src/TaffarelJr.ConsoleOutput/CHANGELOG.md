@@ -21,6 +21,9 @@ The format follows [Keep a Changelog][changelog], and the module follows
 - `Show-Banner` and `Show-Header`, which print text in cyan at the current
   indent, centered inside a full box or left-justified between two rules, as
   wide as the console or, with `-Trim`, as wide as the text.
+- Numbered steps: `Show-Step` prints a header reading "Step N: title" and
+  remembers it, `Get-CurrentStep` returns that label so a failure can name the
+  step that was running, and `Clear-Step` starts the numbering over.
 
 <!-- Public URIs (alphabetical) -->
 

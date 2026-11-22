@@ -2,6 +2,7 @@
 
 Indent-aware console output for PowerShell scripts:
 boxed banners, headers,
+numbered steps that remember the current one,
 and status lines (detail, failure, info, skip, success, and warning)
 with their own emoji markers and colors,
 printed at an indent you add and take off levels of,
@@ -70,6 +71,33 @@ A header keeps every line of its text at the left edge,
 and a banner centers each line of its text on its own,
 with the extra column on the right when it cannot be centered exactly.
 
+`Show-Step` starts a numbered step:
+it prints a header reading "Step N: title"
+and remembers it, so a failure can say which step was running.
+`Get-CurrentStep` returns that label,
+and `Clear-Step` starts the numbering over:
+
+```powershell
+Show-Step 'Build'
+try {
+    throw 'compiler exited with code 1'
+}
+catch {
+    Show-Failure "$(Get-CurrentStep) failed: $($_.Exception.Message)"
+}
+
+Clear-Step
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Step 1: Build
+# ──────────────────────────────────────────────────────────────────────────────
+# ❌ Step 1: Build failed: compiler exited with code 1
+```
+
+Call `Clear-Step` once, after the last step, not after each one.
+Without it, the next run in the same session carries on from the last number.
+A new step replaces the current one: steps do not nest.
+
 `Get-Indent` returns the indent as spaces,
 ready to put in front of a line of your own,
 and `Get-IndentSize` returns the same indent as a number.
@@ -106,7 +134,8 @@ and `Get-IndentSize` returns the same indent as a number.
   so a variable the block assigns is the caller's variable.
 - `Pop-Indent` with nothing to pop writes a warning;
   `-WarningAction SilentlyContinue` hides it.
-- The indent is kept per PowerShell runspace.
+- The indent, the current step and the step count are kept per PowerShell
+  runspace.
 - The exported `$DefaultIndentWidth` is read-only, so remove the module with
   `Remove-Module -Force`: without it the removal fails part way and leaves the
   module listed with its commands gone.
