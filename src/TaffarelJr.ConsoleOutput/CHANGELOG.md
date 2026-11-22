@@ -21,6 +21,12 @@ The format follows [Keep a Changelog][changelog], and the module follows
 - `Show-Banner` and `Show-Header`, which print text in cyan at the current
   indent, centered inside a full box or left-justified between two rules, as
   wide as the console or, with `-Trim`, as wide as the text.
+- A progress line that is opened and later ended with how it went: `Show-Doing`
+  announces work on a line it leaves open, `Show-Done` ends the line with
+  "done", "already done" (`-Skip`) or a warning (`-Warn`), or with wording of
+  its own, and `Invoke-Doing` does both around a script block, ending the line
+  with "done", "failed" or "stopped" however the block ends. Every command that
+  writes a line ends an open one first.
 
 <!-- Public URIs (alphabetical) -->
 

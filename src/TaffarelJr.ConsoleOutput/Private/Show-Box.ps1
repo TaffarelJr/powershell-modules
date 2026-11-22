@@ -8,9 +8,10 @@ function Show-Box {
         blank line is written before and after, setting the box apart from
         what surrounds it. The rules or the box span the console less the
         indent, and are never narrower than the widest line of the text. Text
-        is not wrapped. This command gathers what it needs from the host and
-        writes the lines; Get-BoxContentWidth, Get-BoxFrame and Format-BoxLine
-        decide the width, the frame and the padding.
+        is not wrapped. A line left open is ended first. This command gathers
+        what it needs from the host and writes the lines; Get-BoxContentWidth,
+        Get-BoxFrame and Format-BoxLine decide the width, the frame and the
+        padding.
     .PARAMETER Text
         The text to print. A line break starts a new line.
     .PARAMETER Trim
@@ -52,6 +53,7 @@ function Show-Box {
     $width = Get-BoxContentWidth @widthArguments
     $frame = Get-BoxFrame -Indent $indent -ContentWidth $width -Bordered:$Bordered
 
+    Show-LineBreak
     Write-Host ''
     Write-Host $frame.Top -ForegroundColor Cyan
     $lineArguments = @{

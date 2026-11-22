@@ -18,6 +18,8 @@ New-Variable -Name FallbackConsoleWidth -Value 80 -Option Constant -Scope Script
 $script:IndentStack = [Stack[int]]::new()
 $script:IndentSize = 0
 
+$script:LineOpen = $false
+
 foreach ($file in Get-ChildItem -LiteralPath $PSScriptRoot/Private, $PSScriptRoot/Public -Filter *.ps1) {
     . $file.FullName
 }
@@ -25,12 +27,15 @@ foreach ($file in Get-ChildItem -LiteralPath $PSScriptRoot/Private, $PSScriptRoo
 Export-ModuleMember -Function @(
     'Get-Indent'
     'Get-IndentSize'
+    'Invoke-Doing'
     'Invoke-Indented'
     'Pop-Indent'
     'Push-Indent'
     'Reset-Indent'
     'Show-Banner'
     'Show-Detail'
+    'Show-Doing'
+    'Show-Done'
     'Show-Failure'
     'Show-Header'
     'Show-Info'

@@ -8,6 +8,7 @@ function Show-Detail {
         Writes the text in dark gray, with no marker of its own, three spaces
         in from the current indent. Meant to sit under the text of a
         Show-Failure or Show-Success line.
+        If a line was left open, it is ended first.
     .PARAMETER Text
         The line to print.
     .INPUTS
@@ -34,6 +35,7 @@ function Show-Detail {
     )
 
     process {
+        Show-LineBreak
         Write-Host "$(Get-Indent)$script:DetailMarker$Text" -ForegroundColor DarkGray
     }
 }

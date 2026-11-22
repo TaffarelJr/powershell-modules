@@ -11,6 +11,7 @@ function Show-Warning {
         This command writes to the host, not to the warning stream, so
         $WarningPreference, -WarningAction and -WarningVariable do not apply
         to it. Use the built-in Write-Warning for a warning that should.
+        If a line was left open, it is ended first.
     .PARAMETER Text
         The line to print.
     .INPUTS
@@ -36,6 +37,7 @@ function Show-Warning {
     )
 
     process {
+        Show-LineBreak
         Write-Host "$(Get-Indent)$script:WarningMarker$Text" -ForegroundColor Yellow
     }
 }

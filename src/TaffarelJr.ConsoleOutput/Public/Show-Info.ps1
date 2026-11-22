@@ -7,6 +7,7 @@ function Show-Info {
     .DESCRIPTION
         Writes the text in gray, behind an information marker, at the current
         indent.
+        If a line was left open, it is ended first.
     .PARAMETER Text
         The line to print.
     .INPUTS
@@ -32,6 +33,7 @@ function Show-Info {
     )
 
     process {
+        Show-LineBreak
         Write-Host "$(Get-Indent)$script:InfoMarker$Text" -ForegroundColor Gray
     }
 }
