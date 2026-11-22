@@ -5,12 +5,14 @@
     Author            = 'RJ Hollberg'
     CompanyName       = 'RJ Hollberg'
     Copyright         = '(c) 2026 RJ Hollberg.'
-    Description       = 'Indent-aware console output for PowerShell scripts: boxed banners, headers, and status lines (detail, failure, info, skip, success and warning) with their own emoji markers and colors, printed at an indent you add and take off levels of, or run a script block one level in.'
+    Description       = 'Indent-aware console output for PowerShell scripts: boxed banners, headers, numbered steps that remember the current one, and status lines (detail, failure, info, skip, success and warning) with their own emoji markers and colors, printed at an indent you add and take off levels of, or run a script block one level in.'
     PowerShellVersion = '7.6'
 
     CompatiblePSEditions = @('Core')
 
     FunctionsToExport = @(
+        'Clear-Step'
+        'Get-CurrentStep'
         'Get-Indent'
         'Get-IndentSize'
         'Invoke-Indented'
@@ -23,6 +25,7 @@
         'Show-Header'
         'Show-Info'
         'Show-Skip'
+        'Show-Step'
         'Show-Success'
         'Show-Warning'
     )
@@ -32,7 +35,7 @@
 
     PrivateData       = @{
         PSData = @{
-            Tags         = @('Banner', 'CLI', 'Console', 'Header', 'Indent', 'Output', 'PSEdition_Core', 'Status')
+            Tags         = @('Banner', 'CLI', 'Console', 'Header', 'Indent', 'Output', 'PSEdition_Core', 'Status', 'Step')
             ProjectUri   = 'https://github.com/TaffarelJr/powershell-modules'
             LicenseUri   = 'https://github.com/TaffarelJr/powershell-modules/blob/main/LICENSE'
             ReleaseNotes = 'https://github.com/TaffarelJr/powershell-modules/blob/main/src/TaffarelJr.ConsoleOutput/CHANGELOG.md'
