@@ -37,6 +37,7 @@ Export-ModuleMember -Function @(
     'Show-Doing'
     'Show-Done'
     'Show-Failure'
+    'Show-Field'
     'Show-Header'
     'Show-Info'
     'Show-Skip'
