@@ -6,4 +6,4 @@ in scripts and GitHub Actions workflows across my repositories.
 
 | Module                                                            | Description                                                                                                            | Version |
 | :---------------------------------------------------------------- | :--------------------------------------------------------------------------------------------------------------------- | :------ |
-| [ConsoleOutput](src/TaffarelJr.ConsoleOutput)                     | Indent-aware console output - banners, headers, progress lines, name and value lines, and status lines.                | -       |
+| [ConsoleOutput](src/TaffarelJr.ConsoleOutput)                     | Indent-aware console output - banners, headers, progress lines, name and value lines and lists, and status lines.      | -       |

@@ -31,6 +31,14 @@ The format follows [Keep a Changelog][changelog], and the module follows
   the current indent. `-Budget` sets the width of the name column, so the values
   of the fields that share it line up; a longer name is not cut. The entries of
   a dictionary and an object's `PSObject.Properties` pipe straight in.
+- `Show-FieldList`, which prints a list, a dictionary, or an object as
+  fields with the name column fitted to the longest name: a list by position,
+  a dictionary by key (a hashtable sorted, any other dictionary in its own
+  order), an object by its properties. A list, dictionary, or custom object
+  inside another is printed as its name with its own fields one level in,
+  down to `-Depth` levels (3 by default). `-Budget` fixes the top level's
+  column. Piped values are the elements of a list, and nothing is printed
+  until the input ends. A single value is listed as a list of one.
 
 <!-- Public URIs (alphabetical) -->
 
