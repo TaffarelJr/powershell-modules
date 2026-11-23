@@ -5,7 +5,7 @@
     Author            = 'RJ Hollberg'
     CompanyName       = 'RJ Hollberg'
     Copyright         = '(c) 2026 RJ Hollberg.'
-    Description       = 'Indent-aware console output for PowerShell scripts: boxed banners, headers, a progress line that is opened and later ended with how it went, name and value lines, and status lines (detail, failure, info, skip, success and warning) with their own emoji markers and colors, printed at an indent you add and take off levels of, or run a script block one level in.'
+    Description       = 'Indent-aware console output for PowerShell scripts: boxed banners, headers, a progress line that is opened and later ended with how it went, name and value lines and lists of them, and status lines (detail, failure, info, skip, success and warning) with their own emoji markers and colors, printed at an indent you add and take off levels of, or run a script block one level in.'
     PowerShellVersion = '7.6'
 
     CompatiblePSEditions = @('Core')
@@ -24,6 +24,7 @@
         'Show-Done'
         'Show-Failure'
         'Show-Field'
+        'Show-FieldList'
         'Show-Header'
         'Show-Info'
         'Show-Skip'
