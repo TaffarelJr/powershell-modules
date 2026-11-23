@@ -206,8 +206,9 @@ several things. The in-process forms that cover what children used to:
   `TaffarelJr.TestKit` with the manifests as a parameter and tests of its own;
   do not make another copy.
 - Install and remove stubs in `finally`; restore every environment variable and
-  location you change; scratch folders under `[IO.Path]::GetTempPath()`, removed
-  in `finally`; paths with the multi-segment `Join-Path`, no drive letters.
+  location you change; scratch folders under `[Path]::GetTempPath()` (with
+  `using namespace System.IO`), removed in `finally`; paths with the
+  multi-segment `Join-Path`, no drive letters.
 
 ## Unit tests and integration tests
 
