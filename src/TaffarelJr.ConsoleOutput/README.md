@@ -3,6 +3,7 @@
 Indent-aware console output for PowerShell scripts:
 boxed banners, headers,
 a progress line that is opened and later ended with how it went,
+name and value lines,
 and status lines (detail, failure, info, skip, success, and warning)
 with their own emoji markers and colors,
 printed at an indent you add and take off levels of,
@@ -45,9 +46,45 @@ Show-Info 'one level in'
 Pop-Indent
 ```
 
-Each `Show-*` command takes its text as the first argument or from the pipeline.
+Each `Show-*` command but `Show-Field` takes its text
+as the first argument or from the pipeline.
 `Show-Detail` has no marker:
 it sits three spaces in, under the text of the line above it.
+
+`Show-Field` prints a name and its value on one line, in gray.
+`-Budget` is the width of the name column:
+the values of the fields that share it start in the same column.
+A name wider than the budget is not cut,
+and its value starts one space after the colon.
+The entries of a dictionary and the properties of an object
+(`$object.PSObject.Properties`) carry a name and a value,
+so they pipe straight in:
+
+```powershell
+Show-Field 'Branch' 'main'
+
+$fields = [ordered]@{
+    Branch       = 'main'
+    Commit       = 'a1b2c3d'
+    'Remote URL' = 'origin'
+}
+$fields.GetEnumerator() | Show-Field -Budget 10
+
+$object = [PSCustomObject]@{ Name = 'tool'; Version = '1.2' }
+$object.PSObject.Properties | Show-Field -Budget 7
+
+# Branch: main
+# Branch:     main
+# Commit:     a1b2c3d
+# Remote URL: origin
+# Name:    tool
+# Version: 1.2
+```
+
+A value is shown as the text PowerShell makes of it:
+an array is its elements separated by spaces,
+a hashtable is its type name, and `$null` is nothing.
+A field with no value ends at its colon.
 
 `Show-Header` prints text between two rules,
 and `Show-Banner` prints it inside a box, both in cyan:
@@ -119,6 +156,7 @@ and `Get-IndentSize` returns the same indent as a number.
   a Windows host whose `[Console]::OutputEncoding` is not UTF-8
   prints question marks in their place.
 - A message with line breaks has its indent and marker on the first line only.
+  A field's value is the same: its later lines start at the left edge.
 - `Show-Doing` leaves a line open, and every other command in this module
   that writes a line ends it first, so nothing from this module runs on to the
   end of it.
@@ -134,11 +172,13 @@ and `Get-IndentSize` returns the same indent as a number.
   a line wider than the console widens the rules or the box past it.
   The width is the window's,
   or 80 columns when standard output is redirected or there is no window.
-- Both measure width in characters,
+- `Show-Header`, `Show-Banner`, and the `-Budget` of `Show-Field`
+  measure width in characters,
   so wide characters, emoji, and color codes in the text
   throw the alignment off:
   a banner's right border moves out of line,
-  and a header's rules come out wider than the text shows.
+  a header's rules come out wider than the text shows,
+  and a field's value drifts out of its column.
 - `Invoke-Indented` puts the indent back even when its block throws.
   A script that fails between a `Push-Indent` and its `Pop-Indent`
   leaves its level behind for the rest of the session;

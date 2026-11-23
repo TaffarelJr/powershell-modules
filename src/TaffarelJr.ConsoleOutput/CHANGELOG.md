@@ -27,6 +27,10 @@ The format follows [Keep a Changelog][changelog], and the module follows
   its own, and `Invoke-Doing` does both around a script block, ending the line
   with "done", "failed" or "stopped" however the block ends. Every command that
   writes a line ends an open one first.
+- `Show-Field`, which prints a name and its value as `Name: value` in gray at
+  the current indent. `-Budget` sets the width of the name column, so the values
+  of the fields that share it line up; a longer name is not cut. The entries of
+  a dictionary and an object's `PSObject.Properties` pipe straight in.
 
 <!-- Public URIs (alphabetical) -->
 
