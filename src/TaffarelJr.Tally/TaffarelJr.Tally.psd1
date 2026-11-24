@@ -5,7 +5,7 @@
     Author            = 'RJ Hollberg'
     CompanyName       = 'RJ Hollberg'
     Copyright         = '(c) 2026 RJ Hollberg.'
-    Description       = 'Tagged counters for PowerShell scripts: add to a count under any tags you choose, read the sum of the adds that carry the tags you ask for, or clear them, so one add can be totaled along several dimensions at once.'
+    Description       = 'Tagged counters for PowerShell scripts: add to the count of each tag you choose, read every count as a name and a value to sort, total, show or hand to another process, or clear them.'
     PowerShellVersion = '7.6'
 
     CompatiblePSEditions = @('Core')

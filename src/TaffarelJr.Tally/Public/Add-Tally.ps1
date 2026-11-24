@@ -1,53 +1,54 @@
-using namespace System.Threading
+using namespace System.Collections.Generic
 
 function Add-Tally {
     <#
     .SYNOPSIS
-        Adds to the tally, under any tags you give it.
+        Adds to the count of each tag you give.
     .DESCRIPTION
-        An add is an amount and a set of tags. Get-Tally sums the adds that
-        carry the tags you ask for, so one add can be counted along several
-        dimensions at once: with Add-Tally 5 -Tag A, B, then Add-Tally 3 -Tag A
-        and Add-Tally 1 -Tag B, Get-Tally returns 9, Get-Tally -Tag A returns
-        8 and Get-Tally -Tag B returns 6.
+        Every tag is a counter of its own: Add-Tally 5 -Tag A, B adds 5 to A and
+        5 to B, so adding under several tags is a shortcut for adding the same
+        amount to several counters. An add with no tag goes to the default
+        counter, named (untagged).
 
         The module assigns no meaning to a tag: a category such as "passed", a
-        file extension, or the id of one run are all just tags. Tags are
-        dimensions to sum along, not identifiers; a tag that is different on
-        every add makes every add its own entry in memory.
+        file extension, and the id of a run are all just tags. To count along
+        a second dimension, put it in the tag, as in "run 42:passed". Tags are
+        dimensions to count along, not identifiers; a tag that is different on
+        every add makes every add its own counter in memory.
 
-        The tags of an add are a set: their order, their case and a repeated
-        tag do not matter. An add with no tag counts toward the total only.
+        Names are not case-sensitive, and a counter keeps the spelling it was
+        first added with. A tag repeated in one call is added to once.
 
-        The tally is kept for the whole process and is safe to add to from any
-        runspace. It lasts as long as the process does: removing or importing
-        the module again, or importing it in another runspace, keeps every
-        count. Only Clear-Tally resets it. Counts do not pass between
-        processes; to carry one over, print it and add it in the other.
+        The counts are kept for the whole process and are safe to add to from
+        any runspace. They last as long as the process does: removing or
+        importing the module again, or importing it in another runspace, keeps
+        every count. Only Clear-Tally resets them. Counts do not pass between
+        processes; Get-Tally returns them as data to hand over.
 
         An add that would take a count past what a [long] holds is refused with
-        a terminating error and leaves the count as it was.
+        a terminating error, and changes no count at all, the counts of its
+        other tags included.
     .PARAMETER Amount
         How much to add, as a whole number. Defaults to 1. A negative amount
         takes away.
     .PARAMETER Tag
         The tags to add under: one line each, with no space at either end. A
-        null, empty or blank tag is refused. Omit it to add to the total only.
+        null, empty or blank tag is refused. Omit it to add to the default
+        counter.
     .INPUTS
         None.
     .OUTPUTS
-        None. The count is kept; nothing is written.
+        None. The counts are kept; nothing is written.
     .EXAMPLE
         Add-Tally 5 -Tag A, B
         Add-Tally 3 -Tag A
-        Add-Tally 1 -Tag B
         Get-Tally -Tag A
 
-        Returns 8: the first two adds carry the tag A.
+        Returns the pair A with the value 8: both adds went to A.
     .EXAMPLE
-        Add-Tally -Tag passed, 'run 42'
+        Add-Tally -Tag passed, 'run 42:passed'
 
-        Adds one under the tags passed and "run 42".
+        Adds one to passed and to "run 42:passed".
     .LINK
         https://github.com/TaffarelJr/powershell-modules/blob/main/src/TaffarelJr.Tally/README.md
     .LINK
@@ -64,22 +65,25 @@ function Add-Tally {
         [Alias('Tags')]
         [ValidateNotNullOrEmpty()]
         [ValidatePattern(
-            '^\S([^\r\n\u0085\u2028\u2029\u000B\u000C]*\S)?\z',
+            '^\S([^\r\n\u0085\p{Zl}\p{Zp}\u000B\u000C]*\S)?\z',
             ErrorMessage = 'A tag is one line with no space at either end.')]
         [string[]]$Tag
     )
 
     $ErrorActionPreference = 'Stop'
 
-    $state = Get-TallyState
-    $key = ConvertTo-TallyKey -Tag $Tag
-    [Monitor]::Enter($state)
-    try {
-        $current = [long]0
-        $null = $state.TryGetValue($key, [ref]$current)
-        $state[$key] = [long]([decimal]$current + $Amount)
+    $names = @($script:UntaggedName)
+    if ($PSBoundParameters.ContainsKey('Tag')) {
+        $names = $Tag
     }
-    finally {
-        [Monitor]::Exit($state)
+
+    $seen = [HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
+    $increments = [List[object]]::new()
+    foreach ($name in $names) {
+        if ($seen.Add($name)) {
+            $increments.Add([PSCustomObject]@{ Name = $name; Value = $Amount })
+        }
     }
+
+    Add-TallyAmount -Increment $increments
 }
