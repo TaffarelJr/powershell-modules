@@ -23,7 +23,10 @@ function Edit-TextFileToken {
         'Edited'; 'NoToken', when the token is absent or replacing it would
         change nothing; 'Binary', when the content has a NUL and holds the
         token; or 'Declined', when ShouldProcess said no. Throws for text
-        that is not valid in its encoding.
+        that is not valid in its encoding. When ShouldProcess cannot ask,
+        because no one can answer a -Confirm prompt, its error is thrown with
+        the error ID TextFileApprovalFailed, so a caller that steps over a
+        file's failure can tell it apart and stop.
     #>
     [CmdletBinding()]
     [SuppressMessageAttribute(
@@ -52,7 +55,18 @@ function Edit-TextFileToken {
         return $edit.Status
     }
 
-    if (-not $Cmdlet.ShouldProcess($full, "Replace '$From'")) {
+    try {
+        $approved = $Cmdlet.ShouldProcess($full, "Replace '$From'")
+    }
+    catch {
+        throw [ErrorRecord]::new(
+            $_.Exception,
+            'TextFileApprovalFailed',
+            [ErrorCategory]::OperationStopped,
+            $full)
+    }
+
+    if (-not $approved) {
         return 'Declined'
     }
 

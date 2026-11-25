@@ -5,7 +5,7 @@
     Author            = 'RJ Hollberg'
     CompanyName       = 'RJ Hollberg'
     Copyright         = '(c) 2026 RJ Hollberg.'
-    Description       = 'Reads and writes text files for scripts that rewrite text without disturbing it: the line ending a piece of text uses, the encoding a file is in from its byte order mark, a file''s content, encoding and line ending together, decoded strictly so that invalid text is refused, text written back in the encoding and line ending the file already had, and a token replaced in a file''s content without disturbing either.'
+    Description       = 'Reads and writes text files for scripts that rewrite text without disturbing it: the line ending a piece of text uses, the encoding a file is in from its byte order mark, a file''s content, encoding and line ending together, decoded strictly so that invalid text is refused, text written back in the encoding and line ending the file already had, a token replaced in a file''s content without disturbing either, and a token replaced across the contents and names under a folder.'
     PowerShellVersion = '7.6'
 
     CompatiblePSEditions = @('Core')
@@ -14,6 +14,7 @@
         'Get-FileEncoding'
         'Get-LineEnding'
         'Read-TextFile'
+        'Rename-Token'
         'Update-FileToken'
         'Write-TextFile'
     )
