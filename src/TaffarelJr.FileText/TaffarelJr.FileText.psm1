@@ -11,4 +11,5 @@ Export-ModuleMember -Function @(
     'Get-FileEncoding'
     'Get-LineEnding'
     'Read-TextFile'
+    'Write-TextFile'
 )
