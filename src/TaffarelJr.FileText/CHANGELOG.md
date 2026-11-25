@@ -12,7 +12,11 @@ The format follows [Keep a Changelog][changelog], and the module follows
   a file is written in, from its byte order mark. `Read-TextFile` returns a
   file's content, encoding, and line ending together, decoded strictly so that
   text that is not valid in its encoding is refused rather than read with
-  replacement characters.
+  replacement characters. `Write-TextFile` writes text back in the encoding and
+  line ending the file already had, from lines or as given, in place and in
+  full or not at all; `-LikeFilePath` copies both from a sibling,
+  `-CreateDirectory` makes the folders on the way, and `-WhatIf` and
+  `-Confirm` apply.
 
 <!-- Public URIs (alphabetical) -->
 

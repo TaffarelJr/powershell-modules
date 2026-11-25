@@ -1,10 +1,11 @@
 # TaffarelJr.FileText
 
-Reads text files,
+Reads and writes text files,
 for scripts that rewrite text without disturbing it:
 the line ending a piece of text uses,
 the encoding a file is in, from its byte order mark,
-and a file's content, encoding, and line ending together.
+a file's content, encoding, and line ending together,
+and text written back the way the file already was.
 
 Part of the [powershell-modules] collection.
 
@@ -31,6 +32,10 @@ $file.Content.Length
 $file.Encoding.WebName
 $file.LineEnding -eq "`r`n"
 
+Write-TextFile -Path ./README.md -Content ($file.Content -replace 'hi', 'bye')
+(Read-TextFile -Path ./README.md).Content.Length
+(Get-FileEncoding -Path ./README.md).GetPreamble().Length
+
 # True
 # utf-8
 # utf-16
@@ -38,6 +43,8 @@ $file.LineEnding -eq "`r`n"
 # 4
 # utf-8
 # True
+# 5
+# 3
 ```
 
 `Get-LineEnding` returns the line ending a piece of text already uses,
@@ -66,6 +73,24 @@ $windows1252 = [Text.Encoding]::GetEncoding(1252)
 $file = Read-TextFile -Path ./legacy.txt -Encoding $windows1252
 ```
 
+`Write-TextFile` writes text over a file
+in the encoding the file already has, byte order mark included.
+`-Content` is written exactly as given.
+`-Line` takes lines,
+joins them with the line ending the file already uses,
+and ends the file with one:
+
+```powershell
+Write-TextFile -Path ./notes.txt -Line 'first', 'second'
+Write-TextFile -Path ./notes.txt -Content $file.Content -Encoding $file.Encoding
+```
+
+A file that does not exist yet is UTF-8 without a mark,
+with this process's line ending,
+unless `-LikeFilePath` names a sibling to copy both from.
+`-CreateDirectory` makes the folders on the way,
+and `-Encoding` writes in an encoding of its own choosing.
+
 ## Good to know
 
 - `Get-FileEncoding` reads only the first few bytes of a file,
@@ -82,6 +107,24 @@ $file = Read-TextFile -Path ./legacy.txt -Encoding $windows1252
   not a name such as `utf8`.
   The `Encoding` that comes back has no mark of its own
   when the file had none.
+- `Write-TextFile` encodes all the text before it opens the file,
+  so text the encoding cannot hold throws
+  and leaves an existing file as it was.
+  It writes in place,
+  so a hidden file can be written and stays hidden.
+  A file another program holds open,
+  a read-only file,
+  and a folder that is missing are named in the error with the reason.
+- Writing over a file with no byte order mark that is not valid UTF-8
+  throws unless `-Encoding` says what to write,
+  rather than turning the file into UTF-8.
+- `-Line` ends the file with one line ending,
+  turns every break inside a line into that ending,
+  and writes nothing at all for no lines.
+- `-WhatIf` and `-Confirm` apply to `Write-TextFile`,
+  also when it is called from a function in another module
+  that was run with them.
+  `-Verbose` names the file, its size, and its encoding, never its text.
 - A file in a legacy encoding such as Windows-1252 has no mark to read,
   so it is reported as UTF-8,
   and the encoding returned throws when it is asked to decode that file.
