@@ -19,7 +19,14 @@ The format follows [Keep a Changelog][changelog], and the module follows
   `-Confirm` apply. `Update-FileToken` replaces a token in one file's content,
   keeping its encoding and line ending and returning whether it rewrote the
   file; a file without the token is left alone, and binary content that holds
-  it is declined with a warning rather than rewritten as text.
+  it is declined with a warning rather than rewritten as text. `Rename-Token`
+  replaces a token in the contents, file names, and folder names under a
+  folder, contents first and names longest path first, and returns how many
+  files it edited and names it renamed. It never follows a symbolic link or a
+  junction, finishes the tree and throws once naming every failure, and
+  refuses before changing anything a replacement that cannot be a file name,
+  that contains the token without `-Force`, or, on Windows, that would be
+  unusable there.
 
 <!-- Public URIs (alphabetical) -->
 

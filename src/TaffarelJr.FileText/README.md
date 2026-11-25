@@ -6,7 +6,8 @@ the line ending a piece of text uses,
 the encoding a file is in, from its byte order mark,
 a file's content, encoding, and line ending together,
 text written back the way the file already was,
-and a token replaced in a file's content.
+a token replaced in a file's content,
+and a token replaced across a folder's contents and names.
 
 Part of the [powershell-modules] collection.
 
@@ -112,6 +113,25 @@ The match is literal and case-sensitive,
 and every occurrence is replaced.
 A file without the token is left alone, whatever it holds.
 
+`Rename-Token` does the same for a whole folder:
+it replaces a token in the content of every file under it,
+then in every file and folder name.
+It returns how many files it edited and how many names it renamed:
+
+```powershell
+$result = Rename-Token -Path ./MyProject -From 'Placeholder' -To 'MyProject'
+$result.FilesEdited
+$result.PathsRenamed
+$result.Warning.Count
+
+Rename-Token -Path ./MyProject -From 'Placeholder' -To 'MyProject' -WhatIf
+```
+
+It skips `.git`, `bin`, `node_modules`, and `obj` unless `-Exclude` says otherwise,
+and does not read the content of files with extensions such as `.png`,
+`.zip`, and `.exe`, which `-SkipExtension` lists.
+The folder given keeps its own name.
+
 ## Good to know
 
 - `Get-FileEncoding` reads only the first few bytes of a file,
@@ -166,6 +186,32 @@ A file without the token is left alone, whatever it holds.
   so a secret should not be given as the token
   where that output is kept.
   The replacement is never shown.
+- `Rename-Token` changes contents first, then names, longest path first,
+  so renaming a folder never makes the path of something inside it stale.
+  It does not stop at the first failure:
+  it finishes the tree, then throws once,
+  naming every file and every rename it could not do,
+  so a tree is never left half one name and half the other without saying so.
+- `Rename-Token` refuses before it changes anything
+  a replacement that no file name can hold,
+  and one that contains the token, such as `Foo` to `FooBar`,
+  because running it again would rename the result once more;
+  `-Force` goes ahead anyway.
+  On Windows it also refuses a replacement that would make a name
+  older Windows and many Windows tools treat as a device, such as `CON`,
+  or end in a dot or a space.
+- `Rename-Token` never follows a symbolic link or a junction:
+  the link's own name is renamed,
+  but nothing behind it is read, written, or listed.
+  A link whose target holds the token is named in `Warning`
+  to be re-pointed by hand,
+  as is a folder that could not be listed and a file with binary content
+  that holds the token.
+  A hard link is an ordinary file and is edited.
+- `Rename-Token` and `Update-FileToken` decline binary content the same way.
+- The token and the new names appear in `Rename-Token`'s
+  `-WhatIf`, `-Confirm`, and `-Verbose` text and in its errors,
+  so a secret should not be given where that output is kept.
 - A file in a legacy encoding such as Windows-1252 has no mark to read,
   so it is reported as UTF-8,
   and the encoding returned throws when it is asked to decode that file.
