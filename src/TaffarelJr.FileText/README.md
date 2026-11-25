@@ -5,7 +5,8 @@ for scripts that rewrite text without disturbing it:
 the line ending a piece of text uses,
 the encoding a file is in, from its byte order mark,
 a file's content, encoding, and line ending together,
-and text written back the way the file already was.
+text written back the way the file already was,
+and a token replaced in a file's content.
 
 Part of the [powershell-modules] collection.
 
@@ -36,6 +37,9 @@ Write-TextFile -Path ./README.md -Content ($file.Content -replace 'hi', 'bye')
 (Read-TextFile -Path ./README.md).Content.Length
 (Get-FileEncoding -Path ./README.md).GetPreamble().Length
 
+Update-FileToken -Path ./README.md -From 'bye' -To 'hello'
+(Read-TextFile -Path ./README.md).Content.Length
+
 # True
 # utf-8
 # utf-16
@@ -45,6 +49,8 @@ Write-TextFile -Path ./README.md -Content ($file.Content -replace 'hi', 'bye')
 # True
 # 5
 # 3
+# True
+# 7
 ```
 
 `Get-LineEnding` returns the line ending a piece of text already uses,
@@ -91,6 +97,21 @@ unless `-LikeFilePath` names a sibling to copy both from.
 `-CreateDirectory` makes the folders on the way,
 and `-Encoding` writes in an encoding of its own choosing.
 
+`Update-FileToken` replaces a token in one file's content,
+in the encoding and with the line endings the file already has,
+and returns whether it rewrote the file:
+
+```powershell
+Update-FileToken -Path ./Program.cs -From 'OldName' -To 'NewName'
+
+Get-ChildItem -File -Filter *.cs -Recurse |
+    Update-FileToken -From 'OldName' -To 'NewName'
+```
+
+The match is literal and case-sensitive,
+and every occurrence is replaced.
+A file without the token is left alone, whatever it holds.
+
 ## Good to know
 
 - `Get-FileEncoding` reads only the first few bytes of a file,
@@ -125,6 +146,26 @@ and `-Encoding` writes in an encoding of its own choosing.
   also when it is called from a function in another module
   that was run with them.
   `-Verbose` names the file, its size, and its encoding, never its text.
+- `Update-FileToken` declines binary content.
+  A file whose first 8 KB hold a NUL is never decoded as text:
+  its bytes are searched for the token as UTF-8, UTF-16, and UTF-32,
+  and a file that holds it is left as it was, with a warning.
+  UTF-16 or UTF-32 text with no byte order mark looks the same,
+  and is declined the same way.
+- `Update-FileToken` throws for text that holds the token
+  but is not valid in its encoding,
+  naming the file and leaving it as it was.
+  Text without the token is never read that closely.
+- `Update-FileToken` returns one answer for each file,
+  and nothing under `-WhatIf` or for a file declined at a `-Confirm` prompt.
+  `-WhatIf` and `-Confirm` name a file only once it is known to hold the token.
+  A failing file stops the pipeline,
+  so files after it are not touched and files before it stay updated.
+- The token appears in the warning
+  and in `-WhatIf`, `-Confirm`, and `-Verbose` text,
+  so a secret should not be given as the token
+  where that output is kept.
+  The replacement is never shown.
 - A file in a legacy encoding such as Windows-1252 has no mark to read,
   so it is reported as UTF-8,
   and the encoding returned throws when it is asked to decode that file.
