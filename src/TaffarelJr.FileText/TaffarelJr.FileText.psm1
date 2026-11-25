@@ -10,4 +10,5 @@ foreach ($file in Get-ChildItem -LiteralPath $PSScriptRoot/Private, $PSScriptRoo
 Export-ModuleMember -Function @(
     'Get-FileEncoding'
     'Get-LineEnding'
+    'Read-TextFile'
 )

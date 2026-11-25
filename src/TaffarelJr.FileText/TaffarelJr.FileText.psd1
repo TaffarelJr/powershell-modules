@@ -5,7 +5,7 @@
     Author            = 'RJ Hollberg'
     CompanyName       = 'RJ Hollberg'
     Copyright         = '(c) 2026 RJ Hollberg.'
-    Description       = 'Reads what a text file is written in, for scripts that rewrite text without disturbing it: the line ending a piece of text uses, and the encoding a file is in, from its byte order mark.'
+    Description       = 'Reads text files for scripts that rewrite text without disturbing it: the line ending a piece of text uses, the encoding a file is in from its byte order mark, and a file''s content, encoding and line ending together, decoded strictly so that invalid text is refused rather than read with replacement characters.'
     PowerShellVersion = '7.6'
 
     CompatiblePSEditions = @('Core')
@@ -13,6 +13,7 @@
     FunctionsToExport = @(
         'Get-FileEncoding'
         'Get-LineEnding'
+        'Read-TextFile'
     )
     CmdletsToExport   = @()
     VariablesToExport = @()
