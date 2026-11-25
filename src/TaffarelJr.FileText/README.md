@@ -1,9 +1,10 @@
 # TaffarelJr.FileText
 
-Reads what a text file is written in,
+Reads text files,
 for scripts that rewrite text without disturbing it:
 the line ending a piece of text uses,
-and the encoding a file is in, from its byte order mark.
+the encoding a file is in, from its byte order mark,
+and a file's content, encoding, and line ending together.
 
 Part of the [powershell-modules] collection.
 
@@ -25,10 +26,18 @@ Import-Module TaffarelJr.FileText
 
 Get-ChildItem -File -Filter *.cs | Get-FileEncoding | ForEach-Object WebName
 
+$file = Read-TextFile -Path ./README.md
+$file.Content.Length
+$file.Encoding.WebName
+$file.LineEnding -eq "`r`n"
+
 # True
 # utf-8
 # utf-16
 # utf-8
+# 4
+# utf-8
+# True
 ```
 
 `Get-LineEnding` returns the line ending a piece of text already uses,
@@ -44,10 +53,35 @@ UTF-8, UTF-16, and UTF-32 marks are recognized,
 in both byte orders where there is a choice.
 A file with no mark is UTF-8 without one.
 
+`Read-TextFile` returns an object with the file's `Content`,
+its `Encoding`, and its `LineEnding`.
+The content comes back without the byte order mark,
+so what is read can be put back the way it was read.
+A file with no mark that is not valid UTF-8,
+such as one in Windows-1252, is refused;
+`-Encoding` says what to read it as:
+
+```powershell
+$windows1252 = [Text.Encoding]::GetEncoding(1252)
+$file = Read-TextFile -Path ./legacy.txt -Encoding $windows1252
+```
+
 ## Good to know
 
 - `Get-FileEncoding` reads only the first few bytes of a file,
   so a large file costs no more than a small one.
+  `Read-TextFile` reads the whole file once.
+- `Read-TextFile` decodes strictly.
+  Text that is not valid in its encoding throws,
+  naming the file,
+  rather than coming back with replacement characters
+  that a rewrite would make permanent.
+  A byte order mark still decides over `-Encoding`.
+- `-Encoding` takes a `System.Text.Encoding` object,
+  such as `[Text.Encoding]::GetEncoding(1252)`,
+  not a name such as `utf8`.
+  The `Encoding` that comes back has no mark of its own
+  when the file had none.
 - A file in a legacy encoding such as Windows-1252 has no mark to read,
   so it is reported as UTF-8,
   and the encoding returned throws when it is asked to decode that file.
@@ -57,7 +91,7 @@ A file with no mark is UTF-8 without one.
   It is read as UTF-32.
 - The encoding returned throws on bytes or characters it cannot map,
   rather than substituting one.
-- `Get-FileEncoding` takes path strings,
+- `Get-FileEncoding` and `Read-TextFile` take path strings,
   `Resolve-Path` output,
   and files from `Get-ChildItem` piped in.
   A relative path is relative to PowerShell's location,
