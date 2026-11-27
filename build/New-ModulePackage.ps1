@@ -23,7 +23,8 @@
     only in the output folder and in the package.
 
 .PARAMETER Module
-    The module's folder name under src/, such as TaffarelJr.Tally.
+    The module's name, such as Tally. The folder under src/ is TaffarelJr.Tally,
+    and either spelling is accepted.
 
 .PARAMETER Repository
     The GitHub repository as owner/name, used for the release page link
@@ -47,7 +48,7 @@
     Package (the .nupkg path), NotesPath and Folder (the built module).
 
 .EXAMPLE
-    ./build/New-ModulePackage.ps1 -Module TaffarelJr.Tally -Repository owner/repo -OutputPath ./out/release
+    ./build/New-ModulePackage.ps1 -Module Tally -Repository owner/repo -OutputPath ./out/release
 
     Packs the next release of the Tally module.
 #>
@@ -75,12 +76,16 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
+. (Join-Path -Path $PSScriptRoot -ChildPath 'ReleaseName.ps1')
+
 if ($Repository -notmatch '^[A-Za-z0-9._-]+/[A-Za-z0-9._-]+$') {
     throw "The repository '$Repository' is not owner/name."
 }
 
 $repositoryRoot = [Path]::GetFullPath($RepositoryPath)
 $sourceRoot = Join-Path -Path $repositoryRoot -ChildPath 'src'
+$Module = Resolve-ModuleName -Name $Module -SourceRoot $sourceRoot
+$name = Get-ShortModuleName -Module $Module
 $here = $PSScriptRoot
 $nextArguments = @{
     Module         = $Module
@@ -93,7 +98,7 @@ if ($Version) {
 
 $plan = & (Join-Path $here 'Get-NextVersion.ps1') @nextArguments
 if (-not $plan.Next) {
-    throw "There is nothing to release for ${Module}: no commit since $($plan.Last) " +
+    throw "There is nothing to release for ${name}: no commit since $($plan.Last) " +
     'changes what a user sees. Pass -Version to release it anyway.'
 }
 

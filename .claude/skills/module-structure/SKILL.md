@@ -151,11 +151,12 @@ Copy `src/TaffarelJr.Tally/TaffarelJr.Tally.psd1` and keep its key order.
 
 ## Versioning
 
-Every module stays `0.1.0` until real Gallery publishing starts: no version
-bumps (`repo-workflow` says how fixes are committed). After publishing, a tag is
-`<ModuleName>/vX.Y.Z` (a bare `vX.Y.Z` is ambiguous in a repo of many modules);
-the manifest's `ModuleVersion` is what is published. What a module needs before
-its first publish is in `publishing-modules`.
+Every module's source manifest stays `0.1.0`: a release stamps its version into
+the built manifest, so no version is ever committed (`repo-workflow` says how
+fixes are committed). A release is tagged `<Name>/vX.Y.Z`, with `<Name>` the
+module without its `TaffarelJr.` prefix (a bare `vX.Y.Z` is ambiguous in a repo
+of many modules). What a module needs before its first publish is in
+`publishing-modules`.
 
 ## Adding a module
 

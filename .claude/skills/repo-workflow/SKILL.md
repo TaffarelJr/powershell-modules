@@ -67,12 +67,10 @@ when_to_use: >-
 
 ## Releases
 
-- A module is released on its own: a pull request bumps its `ModuleVersion`
-  and moves its CHANGELOG's `Unreleased` items under the version, and after
-  the merge a GitHub Release is created in the UI on the tag
-  `<ModuleName>/vX.Y.Z` at that commit. Publishing the release runs
-  `publish.yml` (`publishing-modules`). Dependencies are released first,
-  lowest in the chain first.
+- A module is released on its own, in two steps (`publishing-modules`): run
+  `Draft Release` for it, then publish the draft it creates. The release is
+  tagged `<Name>/vX.Y.Z`, and no version or changelog is committed.
+  Dependencies are released first, lowest in the chain first.
 
 ## Before you call a change done
 

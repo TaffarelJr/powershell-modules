@@ -6,7 +6,7 @@
     layout, newest first.
 
 .DESCRIPTION
-    A release is a tag <ModuleName>/vX.Y.Z. The changelog is built one release
+    A release is a tag <Name>/vX.Y.Z, such as Tally/v0.2.0. The changelog is built one release
     at a time: each release is the range of commits from the release before it
     (or from the first commit, for the first) to its own tag, rendered through
     git-cliff with the rules in .github/cliff.toml and then only the commits
@@ -27,7 +27,8 @@
     The result is LF text with one final newline.
 
 .PARAMETER Module
-    The module's folder name under src/, such as TaffarelJr.Tally.
+    The module's name, such as Tally. The folder under src/ is TaffarelJr.Tally,
+    and either spelling is accepted.
 
 .PARAMETER NextVersion
     The version about to be released, MAJOR.MINOR.PATCH.
@@ -46,7 +47,7 @@
     The changelog text.
 
 .EXAMPLE
-    ./build/Get-ModuleChangelog.ps1 -Module TaffarelJr.Tally -NextVersion 0.2.0
+    ./build/Get-ModuleChangelog.ps1 -Module Tally -NextVersion 0.2.0
 
     The changelog of Tally as it will be once 0.2.0 is released.
 #>
@@ -70,6 +71,8 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
+. (Join-Path -Path $PSScriptRoot -ChildPath 'ReleaseName.ps1')
+
 function Get-Release {
     <#
     .SYNOPSIS
@@ -84,11 +87,12 @@ function Get-Release {
         [string]$Module
     )
 
-    $prefix = "$Module/v"
-    $tags = @(& git -C $Repository tag --list "$prefix*" --merged HEAD)
+    $glob = Get-ReleaseTagGlob -Module $Module
+    $tags = @(& git -C $Repository tag --list $glob --merged HEAD)
     @($tags |
-            ForEach-Object { $_.Substring($prefix.Length) } |
-            Where-Object { $_ -match '^\d+\.\d+\.\d+$' } |
+            ForEach-Object { ConvertFrom-ReleaseTag -Tag $_ } |
+            Where-Object { $_ -and $_.Module -ceq $Module } |
+            ForEach-Object Version |
             Sort-Object { [version]$_ })
 }
 
@@ -118,10 +122,11 @@ function Get-ReleaseSection {
         [string]$Range
     )
 
-    $pattern = '^' + [regex]::Escape($Module) + '/v[0-9].*'
+    $pattern = Get-ReleaseTagRegex -Module $Module
+    $tag = Get-ReleaseTag -Module $Module -Version $Version
     $lines = & $Cliff --config $Config --repository $Repository `
         --include-path "src/$Module/**" --tag-pattern $pattern `
-        --tag "$Module/v$Version" --strip header $Range 2>$null
+        --tag $tag --strip header $Range 2>$null
     if ($LASTEXITCODE -ne 0) {
         throw "git-cliff failed for '$Module' $Version (exit $LASTEXITCODE)."
     }
@@ -148,11 +153,9 @@ function Get-FirstCommit {
     @(& git -C $Repository rev-list --max-parents=0 HEAD) | Select-Object -Last 1
 }
 
-if ($Module -notmatch '^TaffarelJr\.[A-Za-z][A-Za-z0-9.]*$') {
-    throw "'$Module' is not a module name."
-}
-
 $repository = [Path]::GetFullPath($RepositoryPath)
+$sourceRoot = Join-Path -Path $repository -ChildPath 'src'
+$Module = Resolve-ModuleName -Name $Module -SourceRoot $sourceRoot
 if (-not $Config) {
     $Config = Join-Path -Path $repository -ChildPath '.github' -AdditionalChildPath 'cliff.toml'
 }
@@ -160,11 +163,6 @@ if (-not $Config) {
 if (-not (Test-Path -LiteralPath $Config -PathType Leaf)) {
     throw "There is no git-cliff configuration at '$Config'; without one git-cliff " +
     'silently applies its own default rules.'
-}
-
-$folder = Join-Path -Path $repository -ChildPath 'src' -AdditionalChildPath $Module
-if (-not (Test-Path -LiteralPath $folder -PathType Container)) {
-    throw "There is no module folder src/$Module in '$repository'."
 }
 
 $releases = @(Get-Release -Repository $repository -Module $Module)
@@ -187,8 +185,9 @@ $first = Get-FirstCommit -Repository $repository
 $steps = [System.Collections.Generic.List[object]]::new()
 $previous = $first
 foreach ($version in $releases) {
-    $steps.Add([PSCustomObject]@{ Version = $version; Range = "$previous..$Module/v$version" })
-    $previous = "$Module/v$version"
+    $release = Get-ReleaseTag -Module $Module -Version $version
+    $steps.Add([PSCustomObject]@{ Version = $version; Range = "$previous..$release" })
+    $previous = $release
 }
 
 if ($NextVersion) {

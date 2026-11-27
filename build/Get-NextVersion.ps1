@@ -6,7 +6,7 @@
     or checks one that was asked for.
 
 .DESCRIPTION
-    A module's releases are the tags "<ModuleName>/vX.Y.Z". The last release
+    A module's releases are the tags "<Name>/vX.Y.Z", such as Tally/v0.2.0. The last release
     is the highest such tag reachable from HEAD. The commits since it that
     touch src/<ModuleName> decide the next version:
 
@@ -32,7 +32,8 @@
     documentation changes alone is possible.
 
 .PARAMETER Module
-    The module's folder name under src/, such as TaffarelJr.Tally.
+    The module's name, such as Tally. The folder under src/ is TaffarelJr.Tally,
+    and either spelling is accepted.
 
 .PARAMETER Version
     The version to release, MAJOR.MINOR.PATCH.
@@ -55,12 +56,12 @@
     commits count).
 
 .EXAMPLE
-    ./build/Get-NextVersion.ps1 -Module TaffarelJr.Tally
+    ./build/Get-NextVersion.ps1 -Module Tally
 
     Returns the version the next release of the Tally module would have.
 
 .EXAMPLE
-    ./build/Get-NextVersion.ps1 -Module TaffarelJr.Tally -Version 1.0.0
+    ./build/Get-NextVersion.ps1 -Module Tally -Version 1.0.0
 
     Checks that 1.0.0 is a valid next version for the Tally module.
 #>
@@ -83,6 +84,8 @@ param(
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
+
+. (Join-Path -Path $PSScriptRoot -ChildPath 'ReleaseName.ps1')
 
 function Assert-Version {
     <#
@@ -113,11 +116,12 @@ function Get-LastVersion {
         [string]$Module
     )
 
-    $prefix = "$Module/v"
-    $tags = @(& git -C $Repository tag --list "$prefix*" --merged HEAD)
+    $glob = Get-ReleaseTagGlob -Module $Module
+    $tags = @(& git -C $Repository tag --list $glob --merged HEAD)
     $versions = @($tags |
-            ForEach-Object { $_.Substring($prefix.Length) } |
-            Where-Object { $_ -match '^\d+\.\d+\.\d+$' })
+            ForEach-Object { ConvertFrom-ReleaseTag -Tag $_ } |
+            Where-Object { $_ -and $_.Module -ceq $Module } |
+            ForEach-Object Version)
     if ($versions.Count -eq 0) {
         return
     }
@@ -146,7 +150,7 @@ function Get-ModuleCommit {
         [string]$Config
     )
 
-    $pattern = '^' + [regex]::Escape($Module) + '/v[0-9].*'
+    $pattern = Get-ReleaseTagRegex -Module $Module
     $json = & $Cliff --config $Config --repository $Repository `
         --include-path "src/$Module/**" --tag-pattern $pattern `
         --unreleased --context 2>$null
@@ -225,9 +229,10 @@ function Assert-NewTag {
         [string]$Version
     )
 
-    $existing = @(& git -C $Repository tag --list "$Module/v$Version")
+    $tag = Get-ReleaseTag -Module $Module -Version $Version
+    $existing = @(& git -C $Repository tag --list $tag)
     if ($existing.Count -gt 0) {
-        throw "$Module/v$Version already exists as a tag."
+        throw "$tag already exists as a tag."
     }
 }
 
@@ -255,7 +260,7 @@ function Get-Result {
         Module  = $Module
         Last    = $Last ? $Last : $null
         Next    = $Next ? $Next : $null
-        Tag     = $Next ? "$Module/v$Next" : $null
+        Tag     = $Next ? (Get-ReleaseTag -Module $Module -Version $Next) : $null
         Reason  = $Reason
         Commits = $Commits
     }
@@ -271,10 +276,8 @@ if (-not (Test-Path -LiteralPath $Config -PathType Leaf)) {
     'silently applies its own default rules.'
 }
 
-$moduleFolder = Join-Path -Path $repository -ChildPath 'src' -AdditionalChildPath $Module
-if (-not (Test-Path -LiteralPath $moduleFolder -PathType Container)) {
-    throw "There is no module folder src/$Module in '$repository'."
-}
+$sourceRoot = Join-Path -Path $repository -ChildPath 'src'
+$Module = Resolve-ModuleName -Name $Module -SourceRoot $sourceRoot
 
 $last = Get-LastVersion -Repository $repository -Module $Module
 $commits = @(Get-ModuleCommit -Repository $repository -Module $Module -Cliff $Cliff -Config $Config)

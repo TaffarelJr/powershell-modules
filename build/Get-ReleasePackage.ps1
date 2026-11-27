@@ -8,8 +8,8 @@
 .DESCRIPTION
     The publish step never rebuilds: it publishes the package the draft
     release carries, so what reaches a feed is what was packed and checked.
-    The tag names the module and the version, <ModuleName>/vX.Y.Z. The
-    release must hold exactly one .nupkg, and that package must be the
+    The tag names the module and the version, <Name>/vX.Y.Z, such as
+    Tally/v0.2.0. The release must hold exactly one .nupkg, and that package must be the
     module's, at that version, with the same version in its manifest. The
     destination is emptied of packages first so an old one is never mistaken
     for this release's.
@@ -18,7 +18,7 @@
     has one. The checksum of what was downloaded is always returned.
 
 .PARAMETER Tag
-    The release tag, <ModuleName>/vX.Y.Z.
+    The release tag, <Name>/vX.Y.Z.
 
 .PARAMETER Repository
     The GitHub repository as owner/name.
@@ -33,7 +33,7 @@
     A PSCustomObject with Module, Version, Tag, Path and Sha256.
 
 .EXAMPLE
-    ./build/Get-ReleasePackage.ps1 -Tag TaffarelJr.Tally/v0.2.0 -Repository owner/repo -Destination ./out/package
+    ./build/Get-ReleasePackage.ps1 -Tag Tally/v0.2.0 -Repository owner/repo -Destination ./out/package
 
     Downloads and checks the package of the Tally 0.2.0 release.
 #>
@@ -57,12 +57,15 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
-if ($Tag -notmatch '^(TaffarelJr\.[A-Za-z][A-Za-z0-9.]*)/v(\d+\.\d+\.\d+)$') {
-    throw "The tag '$Tag' is not <ModuleName>/vX.Y.Z."
+. (Join-Path -Path $PSScriptRoot -ChildPath 'ReleaseName.ps1')
+
+$parsed = ConvertFrom-ReleaseTag -Tag $Tag
+if (-not $parsed) {
+    throw "The tag '$Tag' is not <Name>/vX.Y.Z, such as Tally/v0.2.0."
 }
 
-$module = $Matches[1]
-$version = $Matches[2]
+$module = $parsed.Module
+$version = $parsed.Version
 if ($Repository -notmatch '^[A-Za-z0-9._-]+/[A-Za-z0-9._-]+$') {
     throw "The repository '$Repository' is not owner/name."
 }
