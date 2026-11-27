@@ -1,0 +1,150 @@
+# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
+
+# Publishes a module from the release a person has just published.
+#
+# Nothing is rebuilt. The package the draft carried is downloaded, checked
+# against the tag, and its attestation verified; it is then published to
+# GitHub Packages and to the PowerShell Gallery, and the module's changelog
+# page in the wiki is updated. Publishing the release created the tag, which
+# is what the next version is worked out from.
+#
+# A failed or partial run is started again from the Actions tab with the same
+# tag: a version already on a feed is reported and left alone, and the wiki
+# page is rewritten whole. The wiki is the last step, so a failure there makes
+# the run red after both packages are published.
+
+name: Publish Module
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: The release tag to publish, <ModuleName>/vX.Y.Z.
+        type: string
+        required: true
+
+# Two publishes would race over the same package; a queued one waits.
+concurrency:
+  group: publish-module
+  cancel-in-progress: false
+
+permissions: {}
+
+defaults:
+  run:
+    shell: pwsh
+
+env:
+  # Pinned: what runs here is what was reviewed.
+  GIT_CLIFF_VERSION: 2.14.2
+  GIT_CLIFF_SHA256: 24f397c733add5390fdceee3a2088588ab0d5f944ce00d34cb7029b888cf2db4
+
+jobs:
+  publish:
+    name: Publish the package
+    # Named, not ubuntu-latest: this needs PowerShell 7.6, and the image that
+    # carries it is the one that was checked.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: write # Read the release and its package, and push the wiki
+      packages: write # Push the package to this account's GitHub Packages feed
+      attestations: read # Verify the attestation of the package
+    steps:
+      - name: Read the tag
+        id: tag
+        env:
+          TAG: ${{ github.event.release.tag_name || inputs.tag }}
+          PRERELEASE: ${{ github.event.release.prerelease }}
+        run: |
+          if ($env:TAG -notmatch '^(TaffarelJr\.[A-Za-z][A-Za-z0-9.]*)/v(\d+\.\d+\.\d+)$') {
+            Write-Host "::error::The tag '$env:TAG' is not <ModuleName>/vX.Y.Z."
+            exit 1
+          }
+          if ($env:PRERELEASE -eq 'true') {
+            Write-Host '::error::A pre-release is not published by this workflow.'
+            exit 1
+          }
+          Add-Content -LiteralPath $env:GITHUB_OUTPUT -Value "tag=$env:TAG"
+          Add-Content -LiteralPath $env:GITHUB_OUTPUT -Value "module=$($Matches[1])"
+          Add-Content -LiteralPath $env:GITHUB_OUTPUT -Value "version=$($Matches[2])"
+
+      - name: Check out the tagged commit
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: refs/tags/${{ steps.tag.outputs.tag }}
+          fetch-depth: 0 # The wiki page is built from every release tag
+          persist-credentials: false
+
+      - name: Download the package of the release
+        id: package
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.tag.outputs.tag }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          $r = ./build/Get-ReleasePackage.ps1 -Tag $env:TAG -Repository $env:REPOSITORY -Destination (Join-Path $env:RUNNER_TEMP package)
+          Add-Content -LiteralPath $env:GITHUB_OUTPUT -Value "path=$($r.Path)"
+
+      - name: Verify the attestation of the package
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PACKAGE: ${{ steps.package.outputs.path }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          gh attestation verify $env:PACKAGE --repo $env:REPOSITORY --signer-workflow "$env:REPOSITORY/.github/workflows/draft-release.yml"
+          if ($LASTEXITCODE -ne 0) {
+            Write-Host '::error::The package has no valid attestation from the Draft Release workflow.'
+            exit 1
+          }
+
+      # Whether the workflow's own token may create a NEW package on a
+      # user-scoped feed is undocumented; PACKAGES_TOKEN, a classic token with
+      # write:packages, is the fallback if it may not.
+      - name: Publish to GitHub Packages
+        env:
+          PUBLISH_API_KEY: ${{ secrets.PACKAGES_TOKEN || github.token }}
+          PACKAGE: ${{ steps.package.outputs.path }}
+          OWNER: ${{ github.repository_owner }}
+        run: |
+          $r = ./build/Publish-ModulePackage.ps1 -Package $env:PACKAGE -Repository GitHubPackages -Uri "https://nuget.pkg.github.com/$env:OWNER/index.json"
+          Add-Content -LiteralPath $env:GITHUB_STEP_SUMMARY -Value "GitHub Packages: $($r.Id) $($r.Version) - published: $($r.Published), already there: $($r.Skipped)"
+
+      - name: Publish to the PowerShell Gallery
+        env:
+          PUBLISH_API_KEY: ${{ secrets.POWERSHELL_GALLERY_API_KEY }}
+          PACKAGE: ${{ steps.package.outputs.path }}
+        run: |
+          $r = ./build/Publish-ModulePackage.ps1 -Package $env:PACKAGE -Repository PSGallery
+          Add-Content -LiteralPath $env:GITHUB_STEP_SUMMARY -Value "PowerShell Gallery: $($r.Id) $($r.Version) - published: $($r.Published), already there: $($r.Skipped)"
+
+      - name: Install git-cliff
+        run: |
+          $destination = Join-Path $env:RUNNER_TEMP git-cliff
+          $path = ./build/Install-GitCliff.ps1 -Version $env:GIT_CLIFF_VERSION -Sha256 $env:GIT_CLIFF_SHA256 -Destination $destination
+          Add-Content -LiteralPath $env:GITHUB_PATH -Value (Split-Path -Parent $path)
+
+      # The wiki is a repository of its own. The checkout action authenticates
+      # with the workflow's token and leaves it for the push below, so no
+      # credential is ever on a command line.
+      - name: Check out the wiki
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: ${{ github.repository }}.wiki
+          ref: master
+          path: wiki-clone
+          token: ${{ github.token }}
+
+      - name: Update the changelog in the wiki
+        env:
+          MODULE: ${{ steps.tag.outputs.module }}
+        run: |
+          $wiki = Join-Path $env:GITHUB_WORKSPACE wiki-clone
+          $r = ./build/Update-ChangelogWiki.ps1 -Module $env:MODULE -WikiPath $wiki
+          if ($r.Changed) {
+            git -C $wiki push --quiet origin master
+            if ($LASTEXITCODE -ne 0) { throw 'Could not push the wiki.' }
+          }
+          Add-Content -LiteralPath $env:GITHUB_STEP_SUMMARY -Value "Wiki: $($r.Page) - changed: $($r.Changed)"

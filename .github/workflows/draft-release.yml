@@ -1,0 +1,123 @@
+# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
+
+# Drafts the GitHub release of one module: Actions -> Draft Release -> Run.
+#
+# The version is worked out from the module's commits, or taken from the
+# `version` input. It is stamped into a copy of the manifest in the build
+# output, so nothing is committed to the repository. The module is built into
+# one file, checked, packed, and attested, and a DRAFT release is created with
+# the package attached. A draft has no tag and starts nothing, so a wrong one
+# is deleted, or replaced by running this again.
+#
+# Publishing the draft is the second and last human step: it creates the tag
+# and starts publish-module.yml.
+
+name: Draft Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      module:
+        description: The module to release, such as TaffarelJr.Tally.
+        type: string
+        required: true
+      version:
+        description: A version to release instead of the one the commits give, MAJOR.MINOR.PATCH.
+        type: string
+        required: false
+
+# Two drafts of one module would race over the same release.
+concurrency:
+  group: draft-release-${{ inputs.module }}
+  cancel-in-progress: false
+
+permissions: {}
+
+defaults:
+  run:
+    shell: pwsh
+
+env:
+  # Pinned: what runs here is what was reviewed.
+  GIT_CLIFF_VERSION: 2.14.2
+  GIT_CLIFF_SHA256: 24f397c733add5390fdceee3a2088588ab0d5f944ce00d34cb7029b888cf2db4
+
+jobs:
+  draft:
+    name: Draft the release
+    # Named, not ubuntu-latest: this needs PowerShell 7.6, and the image that
+    # carries it is the one that was checked.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: write # Create the draft release and attach the package
+      id-token: write # Request the signing certificate for the attestation
+      attestations: write # Store the attestation
+    steps:
+      - name: Refuse anything but the default branch
+        env:
+          REF: ${{ github.ref }}
+          DEFAULT: ${{ github.event.repository.default_branch }}
+        run: |
+          if ($env:REF -ne "refs/heads/$env:DEFAULT") {
+            Write-Host "::error::Run this from $env:DEFAULT, not $env:REF: a release is built from the default branch."
+            exit 1
+          }
+
+      - name: Check out the repository with its history and tags
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0 # The version and the changelog read every commit and tag
+          persist-credentials: false # Nothing here pushes; gh uses GH_TOKEN below
+
+      - name: Install git-cliff
+        run: |
+          $destination = Join-Path $env:RUNNER_TEMP git-cliff
+          $path = ./build/Install-GitCliff.ps1 -Version $env:GIT_CLIFF_VERSION -Sha256 $env:GIT_CLIFF_SHA256 -Destination $destination
+          Add-Content -LiteralPath $env:GITHUB_PATH -Value (Split-Path -Parent $path)
+
+      - name: Pack the release
+        id: pack
+        env:
+          MODULE: ${{ inputs.module }}
+          VERSION: ${{ inputs.version }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          $arguments = @{
+            Module = $env:MODULE
+            Repository = $env:REPOSITORY
+            OutputPath = Join-Path $env:RUNNER_TEMP release
+          }
+          if ($env:VERSION) { $arguments.Version = $env:VERSION }
+          $r = ./build/New-ModulePackage.ps1 @arguments
+          Add-Content -LiteralPath $env:GITHUB_OUTPUT -Value "tag=$($r.Tag)"
+          Add-Content -LiteralPath $env:GITHUB_OUTPUT -Value "version=$($r.Version)"
+          Add-Content -LiteralPath $env:GITHUB_OUTPUT -Value "commit=$($r.Commit)"
+          Add-Content -LiteralPath $env:GITHUB_OUTPUT -Value "package=$($r.Package)"
+          Add-Content -LiteralPath $env:GITHUB_OUTPUT -Value "notes=$($r.NotesPath)"
+
+      # The storage record is only for a package pushed to a registry, which
+      # this is not, and asking for it would need one more permission.
+      - name: Attest the package
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: ${{ steps.pack.outputs.package }}
+          create-storage-record: false
+
+      - name: Create the draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.pack.outputs.tag }}
+          REPOSITORY: ${{ github.repository }}
+          NOTES: ${{ steps.pack.outputs.notes }}
+          PACKAGE: ${{ steps.pack.outputs.package }}
+          COMMIT: ${{ steps.pack.outputs.commit }}
+        run: |
+          $url = ./build/New-DraftRelease.ps1 -Tag $env:TAG -Repository $env:REPOSITORY -NotesPath $env:NOTES -Package $env:PACKAGE -Commit $env:COMMIT
+          Add-Content -LiteralPath $env:GITHUB_STEP_SUMMARY -Value @(
+            "## Draft of $env:TAG"
+            ''
+            "- Release: $url"
+            "- Commit: $env:COMMIT"
+            '- Review the version and the notes, then publish the release. That is the last step.'
+          )
