@@ -13,9 +13,15 @@ body = """
 ## [Unreleased]
 {% endif %}\
 {% for group, commits in commits | group_by(attribute="group") %}
-### {{ group | striptags | trim | upper_first }}
+### \
+{% if group == "Added" %}\U00002728 \
+{% elif group == "Changed" %}\U0001F504 \
+{% elif group == "Fixed" %}\U0001F41B \
+{% elif group == "Removed" %}\U0001F5D1\uFE0F \
+{% endif %}\
+{{ group | striptags | trim | upper_first }}
 {% for commit in commits %}
-- {% if commit.breaking %}**Breaking:** {% endif %}{{ commit.message | upper_first }}\
+- {% if commit.breaking %}\U0001F4A5 **Breaking:** {% endif %}{{ commit.message | upper_first }}\
 {% endfor %}
 {% endfor %}
 """

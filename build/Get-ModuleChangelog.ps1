@@ -124,14 +124,26 @@ function Get-ReleaseSection {
 
     $pattern = Get-ReleaseTagRegex -Module $Module
     $tag = Get-ReleaseTag -Module $Module -Version $Version
-    $lines = & $Cliff --config $Config --repository $Repository `
-        --include-path "src/$Module/**" --tag-pattern $pattern `
-        --tag $tag --strip header $Range 2>$null
-    if ($LASTEXITCODE -ne 0) {
-        throw "git-cliff failed for '$Module' $Version (exit $LASTEXITCODE)."
+    $file = Join-Path -Path ([Path]::GetTempPath()) `
+        -ChildPath ([guid]::NewGuid().ToString('N'))
+    try {
+        & $Cliff --config $Config --repository $Repository `
+            --include-path "src/$Module/**" --tag-pattern $pattern `
+            --output $file --tag $tag --strip header $Range 2>$null
+        if ($LASTEXITCODE -ne 0) {
+            throw "git-cliff failed for '$Module' $Version (exit $LASTEXITCODE)."
+        }
+
+        $lines = @()
+        if (Test-Path -LiteralPath $file -PathType Leaf) {
+            $lines = @(Get-Content -LiteralPath $file -Encoding utf8)
+        }
+    }
+    finally {
+        Remove-Item -LiteralPath $file -Force -ErrorAction SilentlyContinue
     }
 
-    $text = (@($lines) -join "`n").Trim()
+    $text = ($lines -join "`n").Trim()
     if ($text -notmatch '(?m)^### ') {
         $date = [DateTime]::UtcNow.ToString('yyyy-MM-dd')
         return "## [$Version] - $date`n`nNo user-facing changes."
