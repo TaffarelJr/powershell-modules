@@ -3,7 +3,7 @@ name: repo-workflow
 description: >-
   How work is tracked, committed and merged in this repo: the standing
   permission on the GitHub issues, the commit shapes of a module, the 0.1.0
-  version policy, rebase merges only, and what must hold before a change is
+  version policy, merge commits only, and what must hold before a change is
   done. Use when committing, opening or updating a pull request, opening or
   updating an issue, or deciding whether to bump a version.
 when_to_use: >-
@@ -49,9 +49,18 @@ when_to_use: >-
 - Pull requests here follow the owner's `stacked-pull-requests` skill where it
   is installed: drafts, fixes folded into the introducing commit while the PR
   is open, stacks linked bottom to top, only the owner merges.
-- The repository allows rebase merges only, so every commit lands as written
+- The repository allows merge commits only, so every commit lands as written
   and its message matters. A Conventional Commit scope, where one helps, is
   the module's lowercase short name (`feat(testkit):`, `fix(github.core):`).
+- Never squash. A pull request's title is plain, not a Conventional Commit,
+  so a squashed commit would have a subject that tooling reading the history
+  for versions and changelogs ignores, and the pull request's `feat` and
+  `docs` commits would become one.
+- Merging a stack through its top pull request merges every pull request
+  below it in one operation, and GitHub recorded a single merge commit for
+  the whole stack (#21 to #24 share one), not one for each pull request.
+  To keep one merge commit for each, merge the pull requests one at a time,
+  bottom first; the next one is then retargeted to `main`.
 - `CI complete` is the one check a pull request must pass; it runs the
   analyzer, the affected modules' tests on both platforms and the single-file
   build (`module-tests`, Running tests).
