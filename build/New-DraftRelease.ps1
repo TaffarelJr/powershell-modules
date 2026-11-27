@@ -17,7 +17,7 @@
     deleted or created.
 
 .PARAMETER Tag
-    The release tag, <ModuleName>/vX.Y.Z. It is also the title.
+    The release tag, <Name>/vX.Y.Z, such as Tally/v0.2.0. It is also the title.
 
 .PARAMETER Repository
     The GitHub repository as owner/name.
@@ -35,7 +35,7 @@
     The address of the draft release.
 
 .EXAMPLE
-    ./build/New-DraftRelease.ps1 -Tag TaffarelJr.Tally/v0.2.0 -Repository owner/repo -NotesPath ./out/text/notes.md -Package ./out/package/TaffarelJr.Tally.0.2.0.nupkg -Commit 0123456789abcdef0123456789abcdef01234567
+    ./build/New-DraftRelease.ps1 -Tag Tally/v0.2.0 -Repository owner/repo -NotesPath ./out/text/notes.md -Package ./out/package/TaffarelJr.Tally.0.2.0.nupkg -Commit 0123456789abcdef0123456789abcdef01234567
 
     Drafts the release for Tally 0.2.0.
 #>
@@ -63,6 +63,8 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
+. (Join-Path -Path $PSScriptRoot -ChildPath 'ReleaseName.ps1')
+
 function Invoke-Gh {
     <#
     .SYNOPSIS
@@ -81,8 +83,8 @@ function Invoke-Gh {
     return $output
 }
 
-if ($Tag -notmatch '^TaffarelJr\.[A-Za-z][A-Za-z0-9.]*/v\d+\.\d+\.\d+$') {
-    throw "The tag '$Tag' is not <ModuleName>/vX.Y.Z."
+if (-not (ConvertFrom-ReleaseTag -Tag $Tag)) {
+    throw "The tag '$Tag' is not <Name>/vX.Y.Z, such as Tally/v0.2.0."
 }
 
 if ($Repository -notmatch '^[A-Za-z0-9._-]+/[A-Za-z0-9._-]+$') {

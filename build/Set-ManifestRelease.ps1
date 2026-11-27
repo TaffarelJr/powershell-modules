@@ -26,7 +26,7 @@
     The https link the Gallery shows as the module's release notes.
 
 .EXAMPLE
-    ./build/Set-ManifestRelease.ps1 -Path ./out/TaffarelJr.Tally/TaffarelJr.Tally.psd1 -Version 0.2.0 -ReleaseNotesUrl https://github.com/owner/repo/releases/tag/TaffarelJr.Tally/v0.2.0
+    ./build/Set-ManifestRelease.ps1 -Path ./out/TaffarelJr.Tally/TaffarelJr.Tally.psd1 -Version 0.2.0 -ReleaseNotesUrl https://github.com/owner/repo/releases/tag/Tally/v0.2.0
 
     Stamps version 0.2.0 and its release page into the built manifest.
 #>

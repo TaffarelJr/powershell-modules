@@ -21,7 +21,8 @@
     touched.
 
 .PARAMETER Module
-    The module's folder name under src/, such as TaffarelJr.Tally.
+    The module's name, such as Tally. The folder under src/ is TaffarelJr.Tally,
+    and either spelling is accepted.
 
 .PARAMETER WikiPath
     A clone of the wiki repository.
@@ -42,7 +43,7 @@
     on it) and Changed (whether a commit was made).
 
 .EXAMPLE
-    ./build/Update-ChangelogWiki.ps1 -Module TaffarelJr.Tally -WikiPath ./wiki
+    ./build/Update-ChangelogWiki.ps1 -Module Tally -WikiPath ./wiki
 
     Rewrites the Tally page in ./wiki and commits it if it changed.
 #>
@@ -68,6 +69,8 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
+. (Join-Path -Path $PSScriptRoot -ChildPath 'ReleaseName.ps1')
+
 function Get-PageText {
     <#
     .SYNOPSIS
@@ -91,6 +94,10 @@ function Get-PageText {
     return $head + $releases + "`n"
 }
 
+$repository = [Path]::GetFullPath($RepositoryPath)
+$sourceRoot = Join-Path -Path $repository -ChildPath 'src'
+$Module = Resolve-ModuleName -Name $Module -SourceRoot $sourceRoot
+$name = Get-ShortModuleName -Module $Module
 $wiki = [Path]::GetFullPath($WikiPath)
 & git -C $wiki rev-parse --git-dir *> $null
 if ($LASTEXITCODE -ne 0) {
@@ -99,7 +106,7 @@ if ($LASTEXITCODE -ne 0) {
 
 $arguments = @{
     Module         = $Module
-    RepositoryPath = $RepositoryPath
+    RepositoryPath = $repository
     Cliff          = $Cliff
 }
 if ($Config) {
@@ -109,8 +116,8 @@ if ($Config) {
 $changelog = & (Join-Path -Path $PSScriptRoot -ChildPath 'Get-ModuleChangelog.ps1') @arguments
 $version = [regex]::Match($changelog, '(?m)^## \[(\d+\.\d+\.\d+)\]').Groups[1].Value
 
-$page = "$Module-Changelog.md"
-$text = Get-PageText -Module $Module -Changelog $changelog
+$page = "$name-Changelog.md"
+$text = Get-PageText -Module $name -Changelog $changelog
 [File]::WriteAllText((Join-Path -Path $wiki -ChildPath $page), $text, [UTF8Encoding]::new($false))
 
 $identity = @(
@@ -122,7 +129,7 @@ $identity = @(
 & git -C $wiki @identity add -- $page
 $changed = @(& git -C $wiki diff --cached --name-only).Count -gt 0
 if ($changed) {
-    & git -C $wiki @identity commit -q -m "docs: update the $Module changelog for $version"
+    & git -C $wiki @identity commit -q -m "docs: update the $name changelog for $version"
     if ($LASTEXITCODE -ne 0) {
         throw "git could not commit the changelog page (exit $LASTEXITCODE)."
     }

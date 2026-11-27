@@ -70,7 +70,7 @@ for every version. `SKILL.md` says why each item matters.
       from an environment secret, and the key has the scope "Push new or
       update packages", the glob `TaffarelJr.*`, and an expiry that is in the
       tracking issue.
-- [ ] The tag `<ModuleName>/vX.Y.Z` points at the published commit, and the
+- [ ] The tag `<Name>/vX.Y.Z` points at the published commit, and the
       GitHub Release on it carries the `.nupkg` as an asset.
 - [ ] The GitHub Packages package is public and linked to the repository
       (once per module, after its first publish).

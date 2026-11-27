@@ -27,8 +27,10 @@ them under `test/<ModuleName>/`, and each module's README says what it does.
   `-Coverage` for the reports. CI runs the same per affected module; a child
   `pwsh` in a test is only for a claim about the process exit status.
 - The published package is one `.psm1` built by `build/Build-Module.ps1`, so
-  a function file never uses `$PSScriptRoot`; `.github/workflows/publish.yml`
-  publishes one module per GitHub Release on the tag `<ModuleName>/vX.Y.Z`.
+  a function file never uses `$PSScriptRoot`. The `Draft Release` and
+  `Publish Module` workflows release one module at a time, on the tag
+  `<Name>/vX.Y.Z`, where `<Name>` is the module without its `TaffarelJr.`
+  prefix.
 - No token, password, account login, machine name or local path in any file,
   test, commit or issue. Tests use fake values.
 - Pull requests are opened as drafts, commits follow Conventional Commits, and

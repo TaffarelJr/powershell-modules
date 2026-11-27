@@ -18,9 +18,14 @@ on:
   workflow_dispatch:
     inputs:
       module:
-        description: The module to release, such as TaffarelJr.Tally.
-        type: string
+        description: The module to release.
+        type: choice
         required: true
+        # One entry for each folder under src/, without the namespace.
+        options:
+          - ConsoleOutput
+          - FileText
+          - Tally
       version:
         description: A version to release instead of the one the commits give, MAJOR.MINOR.PATCH.
         type: string

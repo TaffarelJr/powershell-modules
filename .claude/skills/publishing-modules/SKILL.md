@@ -117,10 +117,10 @@ checklist is the check.
   `Security` groups, and a line saying the module follows Semantic Versioning.
   `ReleaseNotes` is shown as given; a link to the `main` CHANGELOG shows every
   version the same, newest, file, which is the trade-off this repo accepts.
-- The release tag is `<ModuleName>/vX.Y.Z` (`module-structure`), or
-  `<ModuleName>/vX.Y.Z-<label>` for a prerelease whose manifest carries that
-  `Prerelease` label; the publish workflow refuses a tag whose version or
-  label differs from the manifest at that commit.
+- The release tag is `<Name>/vX.Y.Z` (`module-structure`), `<Name>` being the
+  module without its `TaffarelJr.` prefix. The publish workflow refuses a tag
+  whose version differs from the one in the package's manifest, and does not
+  publish a pre-release.
 
 ## What an install looks like
 
@@ -150,20 +150,22 @@ checklist is the check.
 
 ## Publishing
 
-- A release is cut by hand: a pull request bumps `ModuleVersion` and moves the
-  CHANGELOG's `Unreleased` items under the version, it is merged, and a GitHub
-  Release is created in the UI on the tag `<ModuleName>/vX.Y.Z` at that
-  commit, with the Pre-release box ticked exactly when the manifest carries a
-  `Prerelease` label. Publishing the release runs `publish.yml`, which builds
-  the module at the tag, checks the manifest against the tag, checks every
-  `RequiredModules` entry is already on the Gallery (`Publish-PSResource
-  -NupkgPath` does no dependency check of its own, and the Gallery accepts a
-  package whose dependencies it lacks), packs it, attaches the `.nupkg` to the
-  release, pushes it to GitHub Packages, and then, after the owner approves
-  the `powershell-gallery` environment, to the Gallery. A failed or partial
-  publish is rerun from the Actions tab with the same tag: a version already
-  on a feed is reported and left alone. Dependencies are released first,
-  lowest in the chain first.
+- A release is cut in two steps. `Draft Release` is run from the Actions tab
+  on the default branch with a module, chosen from a list, and optionally a
+  version; without one the version is worked out from the module's commits
+  since its last release. It builds the module into one file, stamps the
+  version and the release page link into the built manifest, writes the
+  changelog into the package, checks and packs it, attests it, and creates a
+  draft release `<Name>/vX.Y.Z` with the `.nupkg` attached. Nothing is
+  committed and no tag exists yet. Publishing the draft creates the tag and
+  runs `Publish Module`, which downloads that package, checks it against the
+  tag, verifies its attestation, pushes it to GitHub Packages and the Gallery,
+  and then updates the module's changelog page in the wiki. A failed or
+  partial publish is rerun from the Actions tab with the same tag: a version
+  already on a feed is reported and left alone. The workflows do not check
+  that a required module is already on the Gallery (`Publish-PSResource
+  -NupkgPath` does not, and the Gallery accepts a package whose dependencies
+  it lacks), so dependencies are released first, lowest in the chain first.
 - GitHub Packages is the rehearsal and mirror, not a place to point users at:
   its NuGet feed is scoped to the account, needs a personal access token even
   to install a public package, and a package pushed by PSResourceGet lands

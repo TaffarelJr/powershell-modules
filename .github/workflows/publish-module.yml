@@ -21,7 +21,7 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: The release tag to publish, <ModuleName>/vX.Y.Z.
+        description: The release tag to publish, <Name>/vX.Y.Z, such as Tally/v0.2.0.
         type: string
         required: true
 
@@ -59,8 +59,8 @@ jobs:
           TAG: ${{ github.event.release.tag_name || inputs.tag }}
           PRERELEASE: ${{ github.event.release.prerelease }}
         run: |
-          if ($env:TAG -notmatch '^(TaffarelJr\.[A-Za-z][A-Za-z0-9.]*)/v(\d+\.\d+\.\d+)$') {
-            Write-Host "::error::The tag '$env:TAG' is not <ModuleName>/vX.Y.Z."
+          if ($env:TAG -notmatch '^[A-Za-z][A-Za-z0-9.]*/v\d+\.\d+\.\d+$') {
+            Write-Host "::error::The tag '$env:TAG' is not <Name>/vX.Y.Z."
             exit 1
           }
           if ($env:PRERELEASE -eq 'true') {
@@ -68,8 +68,6 @@ jobs:
             exit 1
           }
           Add-Content -LiteralPath $env:GITHUB_OUTPUT -Value "tag=$env:TAG"
-          Add-Content -LiteralPath $env:GITHUB_OUTPUT -Value "module=$($Matches[1])"
-          Add-Content -LiteralPath $env:GITHUB_OUTPUT -Value "version=$($Matches[2])"
 
       - name: Check out the tagged commit
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -87,6 +85,7 @@ jobs:
         run: |
           $r = ./build/Get-ReleasePackage.ps1 -Tag $env:TAG -Repository $env:REPOSITORY -Destination (Join-Path $env:RUNNER_TEMP package)
           Add-Content -LiteralPath $env:GITHUB_OUTPUT -Value "path=$($r.Path)"
+          Add-Content -LiteralPath $env:GITHUB_OUTPUT -Value "module=$($r.Module)"
 
       - name: Verify the attestation of the package
         env:
@@ -139,7 +138,7 @@ jobs:
 
       - name: Update the changelog in the wiki
         env:
-          MODULE: ${{ steps.tag.outputs.module }}
+          MODULE: ${{ steps.package.outputs.module }}
         run: |
           $wiki = Join-Path $env:GITHUB_WORKSPACE wiki-clone
           $r = ./build/Update-ChangelogWiki.ps1 -Module $env:MODULE -WikiPath $wiki
