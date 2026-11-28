@@ -10,10 +10,11 @@
     commits as the version and cannot disagree with it or with each other.
 
     notes.md holds this release only: a dated heading for the version and its
-    changes grouped as Added, Changed, Fixed and Removed, a breaking change
-    marked and listed with the rest. A release with no commit that counts
-    says so instead of being empty. It is the body of the draft release, and
-    can be edited before the release is published.
+    changes grouped as Added, Changed, Fixed, Performance and Removed,
+    a breaking change marked and listed with the rest.
+    A release with no commit that counts says so instead of being empty.
+    It is the body of the draft release,
+    and can be edited before the release is published.
 
     CHANGELOG.md holds every release of the module in the Keep a Changelog
     layout, newest first, the new one included. It is generated, never
