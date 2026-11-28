@@ -4,14 +4,14 @@
 #
 # Nothing is rebuilt. The package the draft carried is downloaded, checked
 # against the tag, and its attestation verified; it is then published to
-# GitHub Packages and to the PowerShell Gallery, and the module's changelog
-# page in the wiki is updated. Publishing the release created the tag, which
-# is what the next version is worked out from.
+# GitHub Packages and to the PowerShell Gallery, and the module's pages in the
+# wiki are updated by update-wiki.yml. Publishing the release created the tag,
+# which is what the next version is worked out from.
 #
 # A failed or partial run is started again from the Actions tab with the same
 # tag: a version already on a feed is reported and left alone, and the wiki
-# page is rewritten whole. The wiki is the last step, so a failure there makes
-# the run red after both packages are published.
+# pages are rewritten whole. The wiki is a job of its own, run last, so a
+# failure there makes the run red after both packages are published.
 
 name: Publish Module
 
@@ -25,7 +25,10 @@ on:
         type: string
         required: true
 
-# Two publishes would race over the same package; a queued one waits.
+# Two publishes would race over the same package, so one runs at a time. GitHub
+# keeps one pending run per group and replaces an older pending one: if three
+# releases are published close together, the middle one is not published here,
+# and is run again from the Actions tab with its tag.
 concurrency:
   group: publish-module
   cancel-in-progress: false
@@ -36,11 +39,6 @@ defaults:
   run:
     shell: pwsh
 
-env:
-  # Pinned: what runs here is what was reviewed.
-  GIT_CLIFF_VERSION: 2.14.2
-  GIT_CLIFF_SHA256: 24f397c733add5390fdceee3a2088588ab0d5f944ce00d34cb7029b888cf2db4
-
 jobs:
   publish:
     name: Publish the package
@@ -49,9 +47,11 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     permissions:
-      contents: write # Read the release and its package, and push the wiki
+      contents: read # Read the release and its package
       packages: write # Push the package to this account's GitHub Packages feed
       attestations: read # Verify the attestation of the package
+    outputs:
+      tag: ${{ steps.tag.outputs.tag }}
     steps:
       - name: Read the tag
         id: tag
@@ -73,7 +73,6 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: refs/tags/${{ steps.tag.outputs.tag }}
-          fetch-depth: 0 # The wiki page is built from every release tag
           persist-credentials: false
 
       - name: Download the package of the release
@@ -85,7 +84,6 @@ jobs:
         run: |
           $r = ./build/Get-ReleasePackage.ps1 -Tag $env:TAG -Repository $env:REPOSITORY -Destination (Join-Path $env:RUNNER_TEMP package)
           Add-Content -LiteralPath $env:GITHUB_OUTPUT -Value "path=$($r.Path)"
-          Add-Content -LiteralPath $env:GITHUB_OUTPUT -Value "module=$($r.Module)"
 
       - name: Verify the attestation of the package
         env:
@@ -119,31 +117,16 @@ jobs:
           $r = ./build/Publish-ModulePackage.ps1 -Package $env:PACKAGE -Repository PSGallery
           Add-Content -LiteralPath $env:GITHUB_STEP_SUMMARY -Value "PowerShell Gallery: $($r.Id) $($r.Version) - published: $($r.Published), already there: $($r.Skipped)"
 
-      - name: Install git-cliff
-        run: |
-          $destination = Join-Path $env:RUNNER_TEMP git-cliff
-          $path = ./build/Install-GitCliff.ps1 -Version $env:GIT_CLIFF_VERSION -Sha256 $env:GIT_CLIFF_SHA256 -Destination $destination
-          Add-Content -LiteralPath $env:GITHUB_PATH -Value (Split-Path -Parent $path)
-
-      # The wiki is a repository of its own. The checkout action authenticates
-      # with the workflow's token and leaves it for the push below, so no
-      # credential is ever on a command line.
-      - name: Check out the wiki
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          repository: ${{ github.repository }}.wiki
-          ref: master
-          path: wiki-clone
-          token: ${{ github.token }}
-
-      - name: Update the changelog in the wiki
-        env:
-          MODULE: ${{ steps.package.outputs.module }}
-        run: |
-          $wiki = Join-Path $env:GITHUB_WORKSPACE wiki-clone
-          $r = ./build/Update-ChangelogWiki.ps1 -Module $env:MODULE -WikiPath $wiki
-          if ($r.Changed) {
-            git -C $wiki push --quiet origin master
-            if ($LASTEXITCODE -ne 0) { throw 'Could not push the wiki.' }
-          }
-          Add-Content -LiteralPath $env:GITHUB_STEP_SUMMARY -Value "Wiki: $($r.Page) - changed: $($r.Changed)"
+  # A job that calls a workflow can set no runner, so the wiki is a job of its
+  # own: it starts only once both feeds hold the package, and a failure in it
+  # leaves the packages published. A called workflow can only keep or reduce
+  # the permissions it is given, so they are named here.
+  wiki:
+    name: Update the wiki
+    needs: publish
+    permissions:
+      contents: write # Read the release and its package, and push the wiki
+      attestations: read # Verify the attestation of the package
+    uses: ./.github/workflows/update-wiki.yml
+    with:
+      tag: ${{ needs.publish.outputs.tag }}

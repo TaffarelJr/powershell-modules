@@ -1,0 +1,188 @@
+# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
+
+# Writes a module's pages into the repository's wiki from the package of one
+# of its releases: a page for each command, the module's overview and
+# changelog, and the sidebars and home page that link them.
+#
+# The pages are made from the package the release carries, so they say exactly
+# what was published. The scripts that make them are the default branch's, so a
+# change to the generator reaches a module the next time this runs for it.
+# Publish Module calls this once both feeds hold the package; run it from the
+# Actions tab with a release tag to refresh a module without releasing it.
+#
+# Making the pages imports the released module, which runs its code, so that job
+# holds a token that can only read. It hands the one commit it made to a second
+# job as a git bundle, and that job, which holds the token that can write and
+# runs no code from the package, checks the commit touches only wiki pages
+# before it pushes.
+#
+# The wiki is output only: a module's folder is rewritten whole, so a hand edit
+# there is overwritten.
+
+name: Update Wiki
+
+on:
+  workflow_call:
+    inputs:
+      tag:
+        description: The release tag whose pages to write, <Name>/vX.Y.Z, such as Tally/v0.2.0.
+        type: string
+        required: true
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: The release tag whose pages to write, <Name>/vX.Y.Z, such as Tally/v0.2.0.
+        type: string
+        required: true
+
+# Two pushes to the wiki would race, so one run goes at a time. GitHub keeps one
+# pending run per group and replaces an older pending one, so when three runs
+# are close together the middle one is dropped: run it again from the Actions
+# tab. The group is not the one Publish Module uses: a called workflow must not
+# share its caller's.
+concurrency:
+  group: update-wiki
+  cancel-in-progress: false
+
+permissions: {}
+
+defaults:
+  run:
+    shell: pwsh
+
+jobs:
+  generate:
+    name: Make the pages
+    # Named, not ubuntu-latest: this needs PowerShell 7.6, and the image that
+    # carries it is the one that was checked.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: read # Read the release and its package, and clone the wiki
+      attestations: read # Verify the attestation of the package
+    outputs:
+      changed: ${{ steps.pages.outputs.changed }}
+    steps:
+      - name: Read the tag
+        env:
+          TAG: ${{ inputs.tag }}
+        run: |
+          if ($env:TAG -notmatch '^[A-Za-z][A-Za-z0-9.]*/v\d+\.\d+\.\d+$') {
+            Write-Host "::error::The tag '$env:TAG' is not <Name>/vX.Y.Z."
+            exit 1
+          }
+
+      # Called from a release the ref is that release's tag, which is why only a
+      # run started by hand is held to the default branch.
+      - name: Refuse a manual run from anything but the default branch
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          REF: ${{ github.ref }}
+          DEFAULT: ${{ github.event.repository.default_branch }}
+        run: |
+          if ($env:REF -ne "refs/heads/$env:DEFAULT") {
+            Write-Host "::error::Run this from $env:DEFAULT, not $env:REF: the pages are made by its scripts."
+            exit 1
+          }
+
+      - name: Check out the default branch with its tags
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          fetch-depth: 0 # The release tags say each module's newest version
+          persist-credentials: false
+
+      - name: Download the package of the release
+        id: package
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ inputs.tag }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          $r = ./build/Get-ReleasePackage.ps1 -Tag $env:TAG -Repository $env:REPOSITORY -Destination (Join-Path $env:RUNNER_TEMP package)
+          Add-Content -LiteralPath $env:GITHUB_OUTPUT -Value "path=$($r.Path)"
+
+      - name: Verify the attestation of the package
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PACKAGE: ${{ steps.package.outputs.path }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          gh attestation verify $env:PACKAGE --repo $env:REPOSITORY --signer-workflow "$env:REPOSITORY/.github/workflows/draft-release.yml"
+          if ($LASTEXITCODE -ne 0) {
+            Write-Host '::error::The package has no valid attestation from the Draft Release workflow.'
+            exit 1
+          }
+
+      # The wiki is a repository of its own. The token is used to clone it and
+      # not kept: nothing the package runs can read it afterwards.
+      - name: Check out the wiki
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: ${{ github.repository }}.wiki
+          ref: master
+          path: wiki-clone
+          token: ${{ github.token }}
+          persist-credentials: false
+
+      - name: Make the pages
+        id: pages
+        env:
+          PACKAGE: ${{ steps.package.outputs.path }}
+        run: |
+          $wiki = Join-Path $env:GITHUB_WORKSPACE wiki-clone
+          $r = ./build/Update-ModuleWiki.ps1 $env:PACKAGE -WikiPath $wiki
+          Add-Content -LiteralPath $env:GITHUB_OUTPUT -Value "changed=$($r.Changed.ToString().ToLowerInvariant())"
+          $line = "Wiki: $($r.Module) $($r.Version), $($r.Pages) command pages"
+          Add-Content -LiteralPath $env:GITHUB_STEP_SUMMARY -Value "$line - changed: $($r.Changed)"
+          if ($r.Changed) {
+            $bundle = ./build/Export-WikiChange.ps1 -WikiPath $wiki -BundlePath (Join-Path $env:RUNNER_TEMP wiki-change wiki.bundle)
+            Add-Content -LiteralPath $env:GITHUB_OUTPUT -Value "bundle=$bundle"
+          }
+
+      - name: Keep the commit for the job that pushes it
+        if: steps.pages.outputs.changed == 'true'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: wiki-change
+          path: ${{ steps.pages.outputs.bundle }}
+          if-no-files-found: error
+          retention-days: 1
+
+  push:
+    name: Push the pages
+    needs: generate
+    if: needs.generate.outputs.changed == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write # Push the wiki
+    steps:
+      - name: Check out the default branch
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          persist-credentials: false
+
+      # The checkout action leaves the token for the push below, so no credential
+      # is ever on a command line. Nothing runs from the package in this job.
+      - name: Check out the wiki
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: ${{ github.repository }}.wiki
+          ref: master
+          path: wiki-clone
+          token: ${{ github.token }}
+
+      - name: Fetch the commit
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: wiki-change
+          path: ${{ runner.temp }}/wiki-change
+
+      - name: Check the commit and push it
+        run: |
+          $wiki = Join-Path $env:GITHUB_WORKSPACE wiki-clone
+          $bundle = Join-Path $env:RUNNER_TEMP wiki-change wiki.bundle
+          $r = ./build/Send-WikiChange.ps1 -WikiPath $wiki -BundlePath $bundle
+          Add-Content -LiteralPath $env:GITHUB_STEP_SUMMARY -Value "Wiki pushed: $($r.Commit.Substring(0, 7)), $($r.Paths) files"
