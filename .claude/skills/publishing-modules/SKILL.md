@@ -55,10 +55,13 @@ checklist is the check.
   `IconUri`: the collection's shared icon, `assets/icon.png` at its raw
   address on `main` (a 128x128 PNG with a transparent background, as a direct
   link; a GitHub `blob` address is a web page, and a file in the package is
-  not reachable). Microsoft's page names 85x85, but the Gallery draws the icon
-  at 60 pixels at most and its own default is 128x128, as NuGet recommends, so
-  the larger image is sharp on a high-density screen and shrinks well. The
-  public-surface test checks the field is set and is an https link to a `.png`. `LicenseUri` is what keeps the Gallery's own terms
+  not reachable). Microsoft's page names 85x85 and NuGet recommends 128x128,
+  so the image is 128x128: sharp on a high-density screen, and it shrinks
+  well. The Gallery's package page currently draws its own default icon for
+  every package, whatever `IconUri` holds (PowerShell/PowerShellGallery#323
+  and #346), so the icon is not shown there. The public-surface test checks
+  the field is set and is an https link to a `.png`.
+  `LicenseUri` is what keeps the Gallery's own terms
   from applying to the package; the root `LICENSE` is not packed, so the link
   is the only license the page shows. `Prerelease` only for a prerelease.
 - Exports are literal lists, never `'*'`: the Gallery lists them, and discovery
@@ -160,7 +163,7 @@ checklist is the check.
   committed and no tag exists yet. Publishing the draft creates the tag and
   runs `Publish Module`, which downloads that package, checks it against the
   tag, verifies its attestation, pushes it to GitHub Packages and the Gallery,
-  and then updates the module's changelog page in the wiki. A failed or
+  and then calls `Update Wiki` (see The wiki). A failed or
   partial publish is rerun from the Actions tab with the same tag: a version
   already on a feed is reported and left alone. The workflows do not check
   that a required module is already on the Gallery (`Publish-PSResource
@@ -220,3 +223,45 @@ checklist is the check.
   only) serves PowerShellGet 2.x, and PowerShell never checks either at import.
   Until there is a code-signing certificate, publish unsigned and say so in the
   README.
+
+## The wiki
+
+The repository's wiki is the command reference, and it is output only: a
+release writes it, and nobody edits it by hand.
+
+- `Update Wiki` (`update-wiki.yml`) makes a module's pages from the package of
+  one release, so they say what was published, and pushes them with the
+  workflow's own token. `Publish Module` calls it after both feeds hold the
+  package, as a job of its own, so a failure there leaves the release
+  published. Run from the Actions tab with a release tag, it refreshes a module
+  without releasing it, which is how a change to the generator reaches a module.
+  A change merged to `main` reaches the wiki at the module's next release.
+- Making the pages imports the released module, which runs its code, so that
+  job holds a token that can only read and does not keep it. It hands its one
+  commit to a second job, as a git bundle, and that job holds the token that
+  can write and runs nothing from the package: `Send-WikiChange.ps1` pushes
+  only a single commit by the Actions bot, on top of the wiki's tip, that
+  touches nothing but Home, the wiki's sidebar, and a module's pages.
+- GitHub keeps one pending run per concurrency group and replaces an older
+  pending one, so releases published close together can drop one wiki update:
+  run `Update Wiki` again with its tag.
+- Each module has a folder of the same short name: a page for every exported
+  function, named for the function, from its comment-based help; `<Name>`, the
+  README and a table of the commands; `<Name>-Changelog`; and a `_Sidebar.md`
+  that lists those and links back to Home. Home and the wiki's own `_Sidebar.md`
+  list the modules, each with the version of its newest release tag. A
+  function that is gone loses its page, because the folder is rewritten whole.
+- A wiki page is addressed by its name alone, so the folder organizes the
+  sidebar and never the address, and no two pages may share a name, in any
+  case: the generator refuses a function whose name another page already has,
+  `Home`, a name that starts with an underscore, or one that is not letters,
+  digits, dots and hyphens. A link to a page is its bare name.
+- Help the pages are made from must be complete: a synopsis, a description, an
+  example and a description of every parameter, or the generator refuses the
+  module and names the function. Help is plain text, so it keeps to what
+  Markdown shows as written, and a README holds web addresses only, because it
+  is shown on the wiki as well as in the package: the generator refuses one that
+  links to a file or a folder.
+- GitHub serves wiki pages with `X-Robots-Tag: none`, so search engines skip
+  them: people reach a command through the Gallery, the README or the wiki's
+  own sidebar.

@@ -118,7 +118,9 @@ Copy `src/TaffarelJr.Tally/TaffarelJr.Tally.psd1` and keep its key order.
   the README, so the manifest `Description` must stand alone
   (`publishing-modules`).
   The README is install plus a minimal usage example, not a command reference
-  (comment-based help goes stale less). Prose is timeless (no counts, history
+  (comment-based help goes stale less, and the wiki's page for each command is
+  made from it). The README is also the module's overview page in the wiki, so
+  it holds no relative link. Prose is timeless (no counts, history
   or speculation), en-US, wrapped at phrase boundaries.
 - Sections in order: title; one paragraph;
   `Part of the [powershell-modules] collection.`; `## Install`
